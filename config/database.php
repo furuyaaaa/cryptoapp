@@ -17,7 +17,7 @@ return [
     |
     */
 
-    'default' => env('DB_CONNECTION', 'sqlite'),
+    'default' => env('DB_CONNECTION', 'pgsql'),
 
     /*
     |--------------------------------------------------------------------------
@@ -42,6 +42,15 @@ return [
             'journal_mode' => null,
             'synchronous' => null,
             'transaction_mode' => 'DEFERRED',
+        ],
+
+        // SQLite -> PostgreSQL データ移行用の読み取り専用接続。
+        // SQLITE_LEGACY_DATABASE を .env で指定している場合のみ使用可。
+        'sqlite_legacy' => [
+            'driver' => 'sqlite',
+            'database' => env('SQLITE_LEGACY_DATABASE', database_path('database.sqlite')),
+            'prefix' => '',
+            'foreign_key_constraints' => false,
         ],
 
         'mysql' => [
