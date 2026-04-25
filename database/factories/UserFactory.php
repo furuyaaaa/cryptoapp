@@ -42,4 +42,13 @@ class UserFactory extends Factory
             'email_verified_at' => null,
         ]);
     }
+
+    public function admin(): static
+    {
+        // is_admin はマスアサインメント対象外のため、
+        // state 経由では fill() に弾かれる。forceFill で直接セットする。
+        return $this
+            ->afterMaking(fn (User $user) => $user->forceFill(['is_admin' => true]))
+            ->afterCreating(fn (User $user) => $user->forceFill(['is_admin' => true])->save());
+    }
 }
