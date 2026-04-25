@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Http\Requests\ProfileUpdateRequest;
+use App\Services\TwoFactorAuthenticationService;
 use Illuminate\Contracts\Auth\MustVerifyEmail;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -16,11 +17,24 @@ class ProfileController extends Controller
     /**
      * Display the user's profile form.
      */
-    public function edit(Request $request): Response
+    public function edit(Request $request, TwoFactorAuthenticationService $twoFactor): Response
     {
+        $user = $request->user();
+
+        // 2FA セットアップ中なら QR コードと otpauth URL を返す。確認完了後は secret を公開しない。
+        $twoFactorSetup = null;
+        if ($user !== null && $user->hasPendingTwoFactor()) {
+            $twoFactorSetup = [
+                'secret' => $user->two_factor_secret,
+                'qr' => $twoFactor->qrCodeSvg($user, $user->two_factor_secret),
+                'otpauth_url' => $twoFactor->otpauthUrl($user, $user->two_factor_secret),
+            ];
+        }
+
         return Inertia::render('Profile/Edit', [
-            'mustVerifyEmail' => $request->user() instanceof MustVerifyEmail,
+            'mustVerifyEmail' => $user instanceof MustVerifyEmail,
             'status' => session('status'),
+            'twoFactorSetup' => $twoFactorSetup,
         ]);
     }
 

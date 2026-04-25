@@ -19,6 +19,8 @@ return Application::configure(basePath: dirname(__DIR__))
 
         $middleware->alias([
             'admin' => \App\Http\Middleware\EnsureIsAdmin::class,
+            '2fa' => \App\Http\Middleware\EnsureTwoFactorVerified::class,
+            'admin.2fa' => \App\Http\Middleware\EnsureAdminHasTwoFactor::class,
         ]);
 
         // リバースプロキシ配下で Secure Cookie と正しいホスト名を有効にするため、
