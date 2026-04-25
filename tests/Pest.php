@@ -17,6 +17,10 @@ use Tests\TestCase;
 pest()->extend(TestCase::class)
     ->use(RefreshDatabase::class)
     ->beforeEach(function () {
+        // CI など public/build/manifest.json が無い環境でも Inertia レスポンスが
+        // 500 にならないよう、Vite ヘルパーをモック化して manifest 参照を回避する。
+        $this->withoutVite();
+
         // rate limiter の状態をテスト間で分離する（CACHE_STORE=array は同一プロセス内で共有されるため）
         \Illuminate\Support\Facades\Cache::flush();
 
