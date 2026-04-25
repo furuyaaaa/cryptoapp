@@ -23,6 +23,24 @@ jobs:
 
     name: PHP ${{ matrix.php }}
 
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          # ephemeral ランナー内部でしか使わないスーパーユーザーのパスワード。
+          # 平文ベタ書きを避けるため、CI 実行ごとに変化する github.run_id をパスワードに用いる。
+          # ジョブ外には公開されない（services はジョブローカル）。
+          POSTGRES_PASSWORD: ${{ github.run_id }}-${{ github.run_attempt }}
+          POSTGRES_DB: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd="pg_isready -U postgres"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=5
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v6
@@ -31,8 +49,25 @@ jobs:
         uses: shivammathur/setup-php@v2
         with:
           php-version: ${{ matrix.php }}
-          extensions: dom, curl, libxml, mbstring, zip, pcntl, pdo, sqlite, pdo_sqlite
+          extensions: dom, curl, libxml, mbstring, zip, pcntl, pdo, pgsql, pdo_pgsql
           coverage: none
+
+      - name: Generate ephemeral CI DB passwords
+        # アプリ用ロールのパスワードはジョブ起動後にランダム生成し、$GITHUB_ENV で後続ステップに受け渡す。
+        # ソースコード・履歴・プルリクエスト差分のいずれにも平文パスワードが残らない。
+        run: |
+          echo "CI_APP_DB_PASSWORD=$(openssl rand -hex 32)" >> "$GITHUB_ENV"
+
+      - name: Provision app role and testing database
+        env:
+          PGPASSWORD: ${{ github.run_id }}-${{ github.run_attempt }}
+        run: |
+          psql -h 127.0.0.1 -U postgres -d postgres \
+            -c "CREATE ROLE cryptoapp_app WITH LOGIN PASSWORD '${CI_APP_DB_PASSWORD}' NOSUPERUSER NOCREATEDB NOCREATEROLE INHERIT;"
+          psql -h 127.0.0.1 -U postgres -d postgres \
+            -c "CREATE DATABASE cryptoapp_testing OWNER cryptoapp_app;"
+          psql -h 127.0.0.1 -U postgres -d cryptoapp_testing \
+            -c "ALTER SCHEMA public OWNER TO cryptoapp_app;"
 
       - name: Install Composer dependencies
         run: composer install --prefer-dist --no-interaction --no-progress
@@ -44,4 +79,11 @@ jobs:
         run: php artisan key:generate
 
       - name: Execute tests
+        env:
+          DB_CONNECTION: pgsql
+          DB_HOST: 127.0.0.1
+          DB_PORT: 5432
+          DB_DATABASE: cryptoapp_testing
+          DB_USERNAME: cryptoapp_app
+          DB_PASSWORD: ${{ env.CI_APP_DB_PASSWORD }}
         run: php artisan test
