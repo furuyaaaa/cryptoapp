@@ -47,7 +47,9 @@ return [
     |
     */
 
-    'encrypt' => env('SESSION_ENCRYPT', false),
+    // セッションデータは DB に保存する運用のため、デフォルトで暗号化する。
+    // 復号鍵は APP_KEY のため、APP_KEY を本番で必ずローテーション済みであることが前提。
+    'encrypt' => env('SESSION_ENCRYPT', true),
 
     /*
     |--------------------------------------------------------------------------
@@ -169,7 +171,10 @@ return [
     |
     */
 
-    'secure' => env('SESSION_SECURE_COOKIE'),
+    // SESSION_SECURE_COOKIE が明示されていない場合、本番（APP_ENV=production）では
+    // 自動的に true にフォールバックする。ローカル/開発環境では false のまま。
+    // HTTPS 以外で動かすステージングがある場合は .env で明示的に SESSION_SECURE_COOKIE=false を指定すること。
+    'secure' => env('SESSION_SECURE_COOKIE', env('APP_ENV') === 'production'),
 
     /*
     |--------------------------------------------------------------------------

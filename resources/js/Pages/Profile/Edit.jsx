@@ -1,10 +1,11 @@
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 import { Head } from '@inertiajs/react';
 import DeleteUserForm from './Partials/DeleteUserForm';
+import TwoFactorAuthenticationForm from './Partials/TwoFactorAuthenticationForm';
 import UpdatePasswordForm from './Partials/UpdatePasswordForm';
 import UpdateProfileInformationForm from './Partials/UpdateProfileInformationForm';
 
-export default function Edit({ mustVerifyEmail, status }) {
+export default function Edit({ mustVerifyEmail, status, twoFactorSetup }) {
     return (
         <AuthenticatedLayout
             header={
@@ -27,6 +28,13 @@ export default function Edit({ mustVerifyEmail, status }) {
 
                     <div className="bg-white p-4 shadow sm:rounded-lg sm:p-8">
                         <UpdatePasswordForm className="max-w-xl" />
+                    </div>
+
+                    <div className="bg-white p-4 shadow sm:rounded-lg sm:p-8">
+                        <TwoFactorAuthenticationForm
+                            className="max-w-xl"
+                            twoFactorSetup={twoFactorSetup}
+                        />
                     </div>
 
                     <div className="bg-white p-4 shadow sm:rounded-lg sm:p-8">
