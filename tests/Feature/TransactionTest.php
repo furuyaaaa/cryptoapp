@@ -1,6 +1,7 @@
 <?php
 
 use App\Models\Asset;
+use App\Models\AssetPrice;
 use App\Models\Exchange;
 use App\Models\Portfolio;
 use App\Models\Transaction;
@@ -29,6 +30,31 @@ test('自分の取引のみ一覧に表示される', function () {
             ->component('Transactions/Index')
             ->has('transactions.data', 2)
         );
+});
+
+test('取引作成画面は複数の価格履歴があっても PostgreSQL で曖昧列エラーにならない', function () {
+    $user = User::factory()->create();
+    Portfolio::factory()->for($user)->create();
+    $asset = Asset::factory()->create();
+    AssetPrice::factory()->for($asset)->create([
+        'recorded_at' => now()->subDays(2),
+        'price_jpy' => 1_000_000,
+    ]);
+    AssetPrice::factory()->for($asset)->create([
+        'recorded_at' => now()->subDay(),
+        'price_jpy' => 2_000_000,
+    ]);
+
+    $this->actingAs($user)
+        ->get(route('transactions.create'))
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page
+            ->component('Transactions/Create')
+            ->has('assets')
+        );
+
+    $asset->load('latestPrice');
+    expect((float) $asset->latestPrice->price_jpy)->toBe(2_000_000.0);
 });
 
 test('取引を作成できる', function () {

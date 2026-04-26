@@ -1,6 +1,7 @@
 <?php
 
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Auth;
 use Tests\TestCase;
 
 /*
@@ -23,6 +24,9 @@ pest()->extend(TestCase::class)
 
         // rate limiter の状態をテスト間で分離する（CACHE_STORE=array は同一プロセス内で共有されるため）
         \Illuminate\Support\Facades\Cache::flush();
+
+        // Sanctum::actingAs 等で auth ガードに残ったユーザーをテスト間で持ち越さない。
+        Auth::forgetGuards();
 
         // 2FA 未関連の Feature テストは、既に 2FA チャレンジを通過したユーザーとして振る舞わせる。
         // 2FA の挙動を検証するテスト側では withSession(['auth.two_factor_verified' => false])

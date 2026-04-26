@@ -4,10 +4,10 @@ namespace App\Http\Controllers;
 
 use App\Http\Requests\TransactionRequest;
 use App\Models\Asset;
-use App\Models\Exchange;
 use App\Models\Transaction;
+use App\Services\TransactionFormDataService;
+use App\Services\UserTransactionQueryService;
 use App\Support\Csv;
-use App\Support\LikePattern;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Symfony\Component\HttpFoundation\StreamedResponse;
@@ -16,13 +16,18 @@ use Inertia\Response;
 
 class TransactionController extends Controller
 {
+    public function __construct(
+        private readonly TransactionFormDataService $transactionFormData,
+        private readonly UserTransactionQueryService $userTransactionQuery,
+    ) {}
+
     public function index(Request $request): Response
     {
         $user = $request->user();
 
         $filters = $request->only(['portfolio_id', 'asset_id', 'type', 'from', 'to', 'q']);
 
-        $transactions = $this->filteredQuery($request, $filters)
+        $transactions = $this->userTransactionQuery->filtered($request, $filters)
             ->paginate(20)
             ->withQueryString();
 
@@ -32,14 +37,14 @@ class TransactionController extends Controller
             'filterOptions' => [
                 'portfolios' => $user->portfolios()->orderBy('name')->get(['id', 'name']),
                 'assets' => Asset::orderBy('symbol')->get(['id', 'symbol', 'name']),
-                'types' => $this->transactionTypes(),
+                'types' => TransactionFormDataService::typesList(),
             ],
         ]);
     }
 
     public function create(Request $request): Response
     {
-        return Inertia::render('Transactions/Create', $this->formProps($request));
+        return Inertia::render('Transactions/Create', $this->transactionFormData->build($request));
     }
 
     public function store(TransactionRequest $request): RedirectResponse
@@ -59,7 +64,7 @@ class TransactionController extends Controller
         $this->authorize('view', $transaction);
 
         return Inertia::render('Transactions/Edit', [
-            ...$this->formProps($request),
+            ...$this->transactionFormData->build($request),
             'transaction' => [
                 'id' => $transaction->id,
                 'portfolio_id' => $transaction->portfolio_id,
@@ -103,7 +108,7 @@ class TransactionController extends Controller
     public function export(Request $request): StreamedResponse
     {
         $filters = $request->only(['portfolio_id', 'asset_id', 'type', 'from', 'to', 'q']);
-        $query = $this->filteredQuery($request, $filters);
+        $query = $this->userTransactionQuery->filtered($request, $filters);
 
         $typeLabels = [
             Transaction::TYPE_BUY => '買い',
@@ -181,78 +186,4 @@ class TransactionController extends Controller
         }, 200, $headers);
     }
 
-    private function filteredQuery(Request $request, array $filters)
-    {
-        $user = $request->user();
-
-        $query = Transaction::query()
-            ->whereHas('portfolio', fn ($q) => $q->where('user_id', $user->id))
-            ->with(['portfolio:id,name', 'asset:id,symbol,name,icon_url', 'exchange:id,name'])
-            ->orderByDesc('executed_at')
-            ->orderByDesc('id');
-
-        if (! empty($filters['portfolio_id'])) {
-            $query->where('portfolio_id', $filters['portfolio_id']);
-        }
-        if (! empty($filters['asset_id'])) {
-            $query->where('asset_id', $filters['asset_id']);
-        }
-        if (! empty($filters['type'])) {
-            $query->where('type', $filters['type']);
-        }
-        if (! empty($filters['from'])) {
-            $query->where('executed_at', '>=', $filters['from']);
-        }
-        if (! empty($filters['to'])) {
-            $query->where('executed_at', '<=', $filters['to'].' 23:59:59');
-        }
-        if (! empty($filters['q'])) {
-            // ユーザー入力の `%` `_` `\` を LIKE のワイルドカードとして解釈させないようエスケープ。
-            $like = LikePattern::operator();
-            $pattern = LikePattern::contains((string) $filters['q']);
-            $query->where(function ($sub) use ($like, $pattern) {
-                $sub->where('note', $like, $pattern)
-                    ->orWhereHas('asset', fn ($a) => $a->where('symbol', $like, $pattern)->orWhere('name', $like, $pattern));
-            });
-        }
-
-        return $query;
-    }
-
-    private function formProps(Request $request): array
-    {
-        $user = $request->user();
-
-        $portfolios = $user->portfolios()
-            ->orderBy('created_at')
-            ->get(['id', 'name']);
-
-        $assets = Asset::query()
-            ->with('latestPrice:id,asset_id,price_jpy')
-            ->orderBy('symbol')
-            ->get(['id', 'symbol', 'name']);
-
-        return [
-            'portfolios' => $portfolios,
-            'assets' => $assets->map(fn ($a) => [
-                'id' => $a->id,
-                'symbol' => $a->symbol,
-                'name' => $a->name,
-                'current_price_jpy' => (float) ($a->latestPrice?->price_jpy ?? 0),
-            ]),
-            'exchanges' => Exchange::query()->orderBy('id')->get(['id', 'name']),
-            'types' => $this->transactionTypes(),
-            'defaultPortfolioId' => $portfolios->first()?->id,
-        ];
-    }
-
-    private function transactionTypes(): array
-    {
-        return [
-            ['value' => Transaction::TYPE_BUY, 'label' => '買い (Buy)'],
-            ['value' => Transaction::TYPE_SELL, 'label' => '売り (Sell)'],
-            ['value' => Transaction::TYPE_TRANSFER_IN, 'label' => '入庫 (Transfer In)'],
-            ['value' => Transaction::TYPE_TRANSFER_OUT, 'label' => '出庫 (Transfer Out)'],
-        ];
-    }
 }
