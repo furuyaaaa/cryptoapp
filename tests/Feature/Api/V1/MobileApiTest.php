@@ -212,6 +212,21 @@ test('API: 取引フォーム用オプションが取得できる', function () 
         ->assertJsonStructure(['portfolios', 'assets', 'exchanges', 'types', 'defaultPortfolioId']);
 });
 
+test('API: 銘柄検索が取得できる', function () {
+    $user = User::factory()->create();
+    Asset::factory()->create([
+        'symbol' => 'APIQ',
+        'name' => 'API Query Token',
+        'coingecko_id' => 'api-query-token',
+    ]);
+
+    Sanctum::actingAs($user);
+
+    $this->getJson('/api/v1/assets/search?q=APIQ')
+        ->assertOk()
+        ->assertJsonPath('data.0.symbol', 'APIQ');
+});
+
 test('API: 取引を作成し一覧に反映される', function () {
     $user = User::factory()->create();
     $portfolio = Portfolio::factory()->for($user)->create();

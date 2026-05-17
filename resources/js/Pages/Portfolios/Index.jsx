@@ -1,7 +1,9 @@
-import AssetIcon from '@/Components/AssetIcon';
-import ChangeBadge from '@/Components/ChangeBadge';
+import ProfitLoss from '@/Components/ProfitLoss';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 import { Head, Link, router, usePage } from '@inertiajs/react';
+
+/** Inertia 部分リロード用（参照を固定し ProfitLoss のポーリング effect が無駄に再実行されないようにする） */
+const PORTFOLIOS_PAGE_POLL_ONLY = ['portfolios', 'totals'];
 
 const jpy = (v) =>
     new Intl.NumberFormat('ja-JP', {
@@ -9,13 +11,6 @@ const jpy = (v) =>
         currency: 'JPY',
         maximumFractionDigits: 0,
     }).format(Math.round(v || 0));
-
-const amount = (v, digits = 8) => {
-    if (v === null || v === undefined) return '-';
-    const num = Number(v);
-    if (Math.abs(num) >= 1) return num.toLocaleString('ja-JP', { maximumFractionDigits: 4 });
-    return num.toLocaleString('ja-JP', { maximumFractionDigits: digits });
-};
 
 const pct = (v) => `${(v * 100).toFixed(2)}%`;
 
@@ -34,78 +29,6 @@ function SummaryCard({ label, value, sub, tone = 'neutral' }) {
                 {value?.formatted ?? value}
             </div>
             {sub && <div className={`mt-1 text-sm ${toneClass}`}>{sub}</div>}
-        </div>
-    );
-}
-
-function HoldingsTable({ holdings }) {
-    if (!holdings.length) {
-        return (
-            <p className="py-8 text-center text-sm text-gray-500">
-                このポートフォリオにはまだ保有資産がありません。
-            </p>
-        );
-    }
-
-    return (
-        <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-gray-200">
-                <thead className="bg-gray-50">
-                    <tr>
-                        <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-500">銘柄</th>
-                        <th className="px-4 py-3 text-right text-xs font-semibold uppercase tracking-wider text-gray-500">保有数量</th>
-                        <th className="px-4 py-3 text-right text-xs font-semibold uppercase tracking-wider text-gray-500">平均取得単価</th>
-                        <th className="px-4 py-3 text-right text-xs font-semibold uppercase tracking-wider text-gray-500">現在価格</th>
-                        <th className="px-4 py-3 text-right text-xs font-semibold uppercase tracking-wider text-gray-500">24h</th>
-                        <th className="px-4 py-3 text-right text-xs font-semibold uppercase tracking-wider text-gray-500">評価額</th>
-                        <th className="px-4 py-3 text-right text-xs font-semibold uppercase tracking-wider text-gray-500">取得コスト</th>
-                        <th className="px-4 py-3 text-right text-xs font-semibold uppercase tracking-wider text-gray-500">損益</th>
-                        <th className="px-4 py-3 text-right text-xs font-semibold uppercase tracking-wider text-gray-500">損益率</th>
-                    </tr>
-                </thead>
-                <tbody className="divide-y divide-gray-200 bg-white">
-                    {holdings.map((h) => (
-                        <tr key={h.asset_id} className="hover:bg-gray-50">
-                            <td className="whitespace-nowrap px-4 py-3">
-                                <Link
-                                    href={route('assets.show', h.symbol)}
-                                    className="group flex items-center gap-3"
-                                >
-                                    <AssetIcon symbol={h.symbol} iconUrl={h.icon_url} size="md" />
-                                    <div>
-                                        <div className="text-sm font-semibold text-gray-900 group-hover:text-indigo-600">{h.symbol}</div>
-                                        <div className="text-xs text-gray-500">{h.name}</div>
-                                    </div>
-                                </Link>
-                            </td>
-                            <td className="whitespace-nowrap px-4 py-3 text-right font-mono text-sm text-gray-900">
-                                {amount(h.amount)}
-                            </td>
-                            <td className="whitespace-nowrap px-4 py-3 text-right font-mono text-sm text-gray-600">
-                                {jpy(h.avg_buy_price)}
-                            </td>
-                            <td className="whitespace-nowrap px-4 py-3 text-right font-mono text-sm text-gray-600">
-                                {h.current_price_jpy > 0 ? jpy(h.current_price_jpy) : '-'}
-                            </td>
-                            <td className="whitespace-nowrap px-4 py-3 text-right">
-                                <ChangeBadge value={h.change_24h} />
-                            </td>
-                            <td className="whitespace-nowrap px-4 py-3 text-right font-mono text-sm font-semibold text-gray-900">
-                                {jpy(h.valuation)}
-                            </td>
-                            <td className="whitespace-nowrap px-4 py-3 text-right font-mono text-sm text-gray-600">
-                                {jpy(h.cost_basis)}
-                            </td>
-                            <td className={`whitespace-nowrap px-4 py-3 text-right font-mono text-sm font-semibold ${profitClass(h.profit)}`}>
-                                {h.profit >= 0 ? '+' : ''}{jpy(h.profit)}
-                            </td>
-                            <td className={`whitespace-nowrap px-4 py-3 text-right font-mono text-sm font-semibold ${profitClass(h.profit)}`}>
-                                {h.profit >= 0 ? '+' : ''}{pct(h.profit_rate)}
-                            </td>
-                        </tr>
-                    ))}
-                </tbody>
-            </table>
         </div>
     );
 }
@@ -191,7 +114,7 @@ export default function Index({ portfolios, totals }) {
                         </div>
                     )}
 
-                    {portfolios.map((p) => (
+                    {portfolios.map((p, i) => (
                         <div key={p.id} className="overflow-hidden rounded-lg bg-white shadow">
                             <div className="flex items-start justify-between gap-4 border-b border-gray-200 p-6">
                                 <div className="min-w-0 flex-1">
@@ -224,7 +147,11 @@ export default function Index({ portfolios, totals }) {
                                     </div>
                                 </div>
                             </div>
-                            <HoldingsTable holdings={p.holdings} />
+                            <ProfitLoss
+                                holdings={p.holdings}
+                                pollIntervalMs={i === 0 ? 30_000 : 0}
+                                pollOnly={PORTFOLIOS_PAGE_POLL_ONLY}
+                            />
                         </div>
                     ))}
                 </div>

@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\Api\V1\AssetSearchController;
 use App\Http\Controllers\Api\V1\AuthController;
 use App\Http\Controllers\Api\V1\DashboardController;
 use App\Http\Controllers\Api\V1\PortfolioController as ApiPortfolioController;
@@ -17,7 +18,7 @@ Route::prefix('v1')->group(function (): void {
     Route::post('auth/login', [AuthController::class, 'login'])
         ->middleware('throttle:10,1');
 
-    Route::middleware(['auth:sanctum', 'verified'])->group(function (): void {
+    Route::middleware(['auth:sanctum', 'verified', 'subscribed'])->group(function (): void {
         Route::post('auth/logout', [AuthController::class, 'logout']);
         Route::get('user', [AuthController::class, 'me']);
 
@@ -29,6 +30,7 @@ Route::prefix('v1')->group(function (): void {
         Route::delete('portfolios/{portfolio}', [ApiPortfolioController::class, 'destroy']);
 
         Route::get('transactions/form', [ApiTransactionController::class, 'form']);
+        Route::get('assets/search', AssetSearchController::class);
         Route::get('transactions', [ApiTransactionController::class, 'index']);
         Route::post('transactions', [ApiTransactionController::class, 'store']);
         Route::patch('transactions/{transaction}', [ApiTransactionController::class, 'update']);

@@ -9,6 +9,11 @@ export default function AuthenticatedLayout({ header, children }) {
     const { auth } = usePage().props;
     const user = auth.user;
     const isAdmin = Boolean(auth.is_admin);
+    const billingHref = isAdmin
+        ? route('admin.billing')
+        : route('billing');
+    const billingActive =
+        route().current('billing') || route().current('admin.billing');
 
     const [showingNavigationDropdown, setShowingNavigationDropdown] =
         useState(false);
@@ -56,6 +61,9 @@ export default function AuthenticatedLayout({ header, children }) {
                                 >
                                     取引所
                                 </NavLink>
+                                <NavLink href={billingHref} active={billingActive}>
+                                    プラン
+                                </NavLink>
                                 {isAdmin && (
                                     <NavLink
                                         href={route('assets.index')}
@@ -101,6 +109,9 @@ export default function AuthenticatedLayout({ header, children }) {
                                     </Dropdown.Trigger>
 
                                     <Dropdown.Content>
+                                        <Dropdown.Link href={billingHref}>
+                                            課金・プラン
+                                        </Dropdown.Link>
                                         <Dropdown.Link
                                             href={route('profile.edit')}
                                         >
@@ -198,6 +209,12 @@ export default function AuthenticatedLayout({ header, children }) {
                         >
                             取引所
                         </ResponsiveNavLink>
+                        <ResponsiveNavLink
+                            href={billingHref}
+                            active={billingActive}
+                        >
+                            プラン
+                        </ResponsiveNavLink>
                         {isAdmin && (
                             <ResponsiveNavLink
                                 href={route('assets.index')}
@@ -225,6 +242,9 @@ export default function AuthenticatedLayout({ header, children }) {
                         </div>
 
                         <div className="mt-3 space-y-1">
+                            <ResponsiveNavLink href={billingHref}>
+                                課金・プラン
+                            </ResponsiveNavLink>
                             <ResponsiveNavLink href={route('profile.edit')}>
                                 Profile
                             </ResponsiveNavLink>

@@ -3,16 +3,17 @@
 namespace App\Http\Controllers;
 
 use App\Http\Requests\TransactionRequest;
-use App\Models\Asset;
 use App\Models\Transaction;
+use App\Services\AssetSearchService;
 use App\Services\TransactionFormDataService;
 use App\Services\UserTransactionQueryService;
 use App\Support\Csv;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
-use Symfony\Component\HttpFoundation\StreamedResponse;
 use Inertia\Inertia;
 use Inertia\Response;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class TransactionController extends Controller
 {
@@ -31,12 +32,16 @@ class TransactionController extends Controller
             ->paginate(20)
             ->withQueryString();
 
+        $highlightAssetId = isset($filters['asset_id']) && $filters['asset_id'] !== '' && $filters['asset_id'] !== null
+            ? (int) $filters['asset_id']
+            : null;
+
         return Inertia::render('Transactions/Index', [
             'transactions' => $transactions,
             'filters' => $filters,
             'filterOptions' => [
                 'portfolios' => $user->portfolios()->orderBy('name')->get(['id', 'name']),
-                'assets' => Asset::orderBy('symbol')->get(['id', 'symbol', 'name']),
+                'assets' => TransactionFormDataService::assetsForTransactionFilters($user, $highlightAssetId),
                 'types' => TransactionFormDataService::typesList(),
             ],
         ]);
@@ -64,7 +69,7 @@ class TransactionController extends Controller
         $this->authorize('view', $transaction);
 
         return Inertia::render('Transactions/Edit', [
-            ...$this->transactionFormData->build($request),
+            ...$this->transactionFormData->build($request, $transaction->asset_id),
             'transaction' => [
                 'id' => $transaction->id,
                 'portfolio_id' => $transaction->portfolio_id,
@@ -103,6 +108,21 @@ class TransactionController extends Controller
         return redirect()
             ->back()
             ->with('success', '取引を削除しました。');
+    }
+
+    public function assetSearch(Request $request, AssetSearchService $search): JsonResponse
+    {
+        $this->authorize('create', Transaction::class);
+
+        $validated = $request->validate([
+            'q' => ['sometimes', 'nullable', 'string', 'max:100'],
+            'limit' => ['sometimes', 'integer', 'min:1', 'max:100'],
+        ]);
+
+        $limit = (int) ($validated['limit'] ?? 50);
+        $rows = $search->searchForPicker($validated['q'] ?? '', $limit);
+
+        return response()->json(['data' => $search->mapToPickerRows($rows)]);
     }
 
     public function export(Request $request): StreamedResponse
@@ -185,5 +205,4 @@ class TransactionController extends Controller
             fclose($handle);
         }, 200, $headers);
     }
-
 }

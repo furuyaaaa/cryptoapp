@@ -4,7 +4,6 @@ namespace App\Http\Controllers\Api\V1;
 
 use App\Http\Controllers\Controller;
 use App\Http\Requests\TransactionRequest;
-use App\Models\Asset;
 use App\Models\Transaction;
 use App\Models\User;
 use App\Services\TransactionFormDataService;
@@ -35,6 +34,10 @@ class TransactionController extends Controller
             ->paginate(20)
             ->withQueryString();
 
+        $highlightAssetId = isset($filters['asset_id']) && $filters['asset_id'] !== '' && $filters['asset_id'] !== null
+            ? (int) $filters['asset_id']
+            : null;
+
         return response()->json([
             'data' => $paginator->items(),
             'meta' => [
@@ -46,7 +49,7 @@ class TransactionController extends Controller
             'filters' => $filters,
             'filter_options' => [
                 'portfolios' => $user->portfolios()->orderBy('name')->get(['id', 'name']),
-                'assets' => Asset::orderBy('symbol')->get(['id', 'symbol', 'name']),
+                'assets' => TransactionFormDataService::assetsForTransactionFilters($user, $highlightAssetId),
                 'types' => TransactionFormDataService::typesList(),
             ],
         ]);

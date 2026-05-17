@@ -7,13 +7,14 @@ use App\Models\AssetPrice;
 use App\Services\CoinGeckoService;
 use Illuminate\Console\Command;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Collection;
 use Throwable;
 
-class UpdateAssetPrices extends Command
+class FetchAssetPrices extends Command
 {
-    protected $signature = 'prices:update';
+    protected $signature = 'coingecko:fetch-asset-prices';
 
-    protected $description = 'Fetch latest prices from CoinGecko and store into asset_prices';
+    protected $description = 'CoinGecko /simple/price から取得し asset_prices に保存する';
 
     public function handle(CoinGeckoService $coinGecko): int
     {
@@ -46,6 +47,7 @@ class UpdateAssetPrices extends Command
         foreach ($assets as $asset) {
             if (! isset($prices[$asset->coingecko_id])) {
                 $missing[] = $asset->symbol;
+
                 continue;
             }
 
@@ -71,7 +73,7 @@ class UpdateAssetPrices extends Command
     }
 
     /**
-     * @param  \Illuminate\Support\Collection<int, Asset>  $assets
+     * @param  Collection<int, Asset>  $assets
      */
     private function syncIcons(CoinGeckoService $coinGecko, $assets): void
     {

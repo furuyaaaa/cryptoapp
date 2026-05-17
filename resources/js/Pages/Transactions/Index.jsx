@@ -302,7 +302,7 @@ export default function Index({ transactions, filters, filterOptions }) {
                                                 <td className="whitespace-nowrap px-4 py-3 text-sm">
                                                     {tx.asset?.symbol ? (
                                                         <Link
-                                                            href={route('assets.show', tx.asset.symbol)}
+                                                            href={route('assets.show', tx.asset.id)}
                                                             className="group flex items-center gap-2"
                                                         >
                                                             <AssetIcon

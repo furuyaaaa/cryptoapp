@@ -24,21 +24,33 @@ use Illuminate\Support\Sleep;
 class CoinGeckoService
 {
     private const BASE_URL = 'https://api.coingecko.com/api/v3';
+
     private const VS_CURRENCIES = 'jpy,usd';
+
     private const CHUNK_SIZE = 100;
+
     private const TIMEOUT_SECONDS = 15;
+
     /** リトライ最大回数（1 回目の失敗後からカウント） */
     private const MAX_RETRIES = 3;
+
     /** 初期バックオフ (ms)。以後は 2x ずつ伸ばす: 1000 → 2000 → 4000 */
     private const BASE_BACKOFF_MS = 1000;
+
     /** ジッター最大値 (ms)。バックオフに 0〜この値を足す */
     private const JITTER_MAX_MS = 500;
+
     /** Retry-After が秒数で指定された場合の上限 (ms)。これを超える場合は上限を採用し諦める */
     private const RETRY_AFTER_CAP_MS = 30_000;
+
     /** 成功レスポンスのキャッシュ寿命 (秒)。価格取得用 */
     private const PRICE_CACHE_TTL_SECONDS = 60;
+
     /** マーケット (アイコン等) は変化が遅いので長めにキャッシュ */
     private const MARKET_CACHE_TTL_SECONDS = 3600;
+
+    /** /coins/list は銘柄マスタとして 24 時間キャッシュ */
+    private const COIN_LIST_CACHE_TTL_SECONDS = 86_400;
 
     /**
      * 指定された CoinGecko ID 群の現在価格 (jpy, usd) を返す。
@@ -65,6 +77,7 @@ class CoinGeckoService
                 foreach ($response->json() ?? [] as $id => $data) {
                     if (! isset($data['jpy'], $data['usd'])) {
                         Log::warning('CoinGecko: incomplete price data', ['id' => $id, 'data' => $data]);
+
                         continue;
                     }
 
@@ -125,6 +138,41 @@ class CoinGeckoService
         }
 
         return $markets;
+    }
+
+    /**
+     * CoinGecko の全銘柄リスト (/coins/list) を返す。
+     *
+     * @return list<array{id: string, symbol: string, name: string}>
+     *
+     * @throws ConnectionException|RequestException
+     */
+    public function fetchCoinList(): array
+    {
+        return Cache::remember('coingecko:coins:list', self::COIN_LIST_CACHE_TTL_SECONDS, function () {
+            $response = $this->requestWithRetry('/coins/list', [
+                'include_platform' => 'false',
+            ]);
+
+            $decoded = $response->json();
+            if (! is_array($decoded)) {
+                return [];
+            }
+
+            $out = [];
+            foreach ($decoded as $row) {
+                if (! is_array($row) || ! isset($row['id'], $row['symbol'], $row['name'])) {
+                    continue;
+                }
+                $out[] = [
+                    'id' => (string) $row['id'],
+                    'symbol' => (string) $row['symbol'],
+                    'name' => (string) $row['name'],
+                ];
+            }
+
+            return $out;
+        });
     }
 
     /**

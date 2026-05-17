@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Models\Transaction;
 use App\Models\User;
+use Illuminate\Support\Collection;
 
 /**
  * ダッシュボード用の Inertia / JSON 共通ペイロード。
@@ -16,7 +17,7 @@ final class DashboardDataService
     ) {}
 
     /**
-     * @return array{totals: array<string, mixed>, allocation: list<array<string, mixed>>, topHoldings: list<array<string, mixed>>, recentTransactions: \Illuminate\Support\Collection<int, array<string, mixed>>}
+     * @return array{totals: array<string, mixed>, allocation: list<array<string, mixed>>, topHoldings: list<array<string, mixed>>, recentTransactions: Collection<int, array<string, mixed>>}
      */
     public function buildForUser(User $user): array
     {
@@ -81,6 +82,7 @@ final class DashboardDataService
                 'fee_jpy' => (float) $tx->fee_jpy,
                 'executed_at' => $tx->executed_at?->toIso8601String(),
                 'asset' => [
+                    'id' => $tx->asset->id,
                     'symbol' => $tx->asset->symbol,
                     'name' => $tx->asset->name,
                     'icon_url' => $tx->asset->icon_url,

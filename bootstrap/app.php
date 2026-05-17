@@ -1,8 +1,14 @@
 <?php
 
+use App\Http\Middleware\EnsureAdminHasTwoFactor;
+use App\Http\Middleware\EnsureIsAdmin;
+use App\Http\Middleware\EnsureTwoFactorVerified;
+use App\Http\Middleware\EnsureUserIsSubscribed;
+use App\Http\Middleware\HandleInertiaRequests;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
+use Illuminate\Http\Middleware\AddLinkHeadersForPreloadedAssets;
 use Illuminate\Http\Request;
 
 return Application::configure(basePath: dirname(__DIR__))
@@ -14,14 +20,19 @@ return Application::configure(basePath: dirname(__DIR__))
     )
     ->withMiddleware(function (Middleware $middleware): void {
         $middleware->web(append: [
-            \App\Http\Middleware\HandleInertiaRequests::class,
-            \Illuminate\Http\Middleware\AddLinkHeadersForPreloadedAssets::class,
+            HandleInertiaRequests::class,
+            AddLinkHeadersForPreloadedAssets::class,
+        ]);
+
+        $middleware->validateCsrfTokens(except: [
+            'stripe/*',
         ]);
 
         $middleware->alias([
-            'admin' => \App\Http\Middleware\EnsureIsAdmin::class,
-            '2fa' => \App\Http\Middleware\EnsureTwoFactorVerified::class,
-            'admin.2fa' => \App\Http\Middleware\EnsureAdminHasTwoFactor::class,
+            'admin' => EnsureIsAdmin::class,
+            '2fa' => EnsureTwoFactorVerified::class,
+            'admin.2fa' => EnsureAdminHasTwoFactor::class,
+            'subscribed' => EnsureUserIsSubscribed::class,
         ]);
 
         // リバースプロキシ配下で Secure Cookie と正しいホスト名を有効にするため、

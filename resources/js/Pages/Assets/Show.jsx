@@ -124,7 +124,7 @@ export default function Show({ asset, prices, range, holding, transactions }) {
 
     const changeRange = (next) => {
         router.get(
-            route('assets.show', asset.symbol),
+            route('assets.show', asset.id),
             { range: next },
             { preserveScroll: true, preserveState: true, replace: true }
         );
@@ -266,7 +266,7 @@ export default function Show({ asset, prices, range, holding, transactions }) {
                                 価格履歴がまだありません。
                                 <br />
                                 <code className="mt-2 inline-block rounded bg-gray-100 px-2 py-1 text-xs">
-                                    php artisan prices:update
+                                    php artisan coingecko:fetch-asset-prices
                                 </code>{' '}
                                 を実行してください。
                             </div>

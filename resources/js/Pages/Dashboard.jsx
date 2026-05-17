@@ -163,7 +163,7 @@ export default function Dashboard({ totals, allocation, topHoldings, recentTrans
                                             {topHoldings.map((h, i) => (
                                                 <li key={h.asset_id}>
                                                     <Link
-                                                        href={route('assets.show', h.symbol)}
+                                                        href={route('assets.show', h.asset_id)}
                                                         className="-mx-2 flex items-center gap-3 rounded-md px-2 py-2.5 hover:bg-gray-50"
                                                     >
                                                         <span
@@ -255,7 +255,7 @@ export default function Dashboard({ totals, allocation, topHoldings, recentTrans
                                                             size="xs"
                                                         />
                                                         <Link
-                                                            href={route('assets.show', tx.asset.symbol)}
+                                                            href={route('assets.show', tx.asset.id)}
                                                             className="text-sm font-semibold text-gray-800 hover:text-indigo-600"
                                                         >
                                                             {tx.asset.symbol}

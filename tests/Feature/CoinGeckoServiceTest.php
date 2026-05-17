@@ -144,3 +144,40 @@ test('接続エラーはリトライ後に最終的に throw する', function (
     expect(fn () => $service->fetchPrices(['bitcoin']))
         ->toThrow(ConnectionException::class);
 });
+
+test('coins/list を取得して正規化した配列を返す', function () {
+    Http::fake([
+        '*/coins/list*' => Http::response([
+            ['id' => 'bitcoin', 'symbol' => 'btc', 'name' => 'Bitcoin'],
+            ['id' => 'not-array'],
+            'broken',
+        ], 200),
+    ]);
+
+    $service = app(CoinGeckoService::class);
+
+    $list = $service->fetchCoinList();
+
+    expect($list)->toHaveCount(1);
+    expect($list[0])->toMatchArray([
+        'id' => 'bitcoin',
+        'symbol' => 'btc',
+        'name' => 'Bitcoin',
+    ]);
+    Http::assertSentCount(1);
+});
+
+test('coins/list も 429 からリトライ回復する', function () {
+    Http::fakeSequence()
+        ->push('rate limited', 429)
+        ->push([
+            ['id' => 'ethereum', 'symbol' => 'eth', 'name' => 'Ethereum'],
+        ], 200);
+
+    $service = app(CoinGeckoService::class);
+
+    $list = $service->fetchCoinList();
+
+    expect($list[0]['id'])->toBe('ethereum');
+    Http::assertSentCount(2);
+});
