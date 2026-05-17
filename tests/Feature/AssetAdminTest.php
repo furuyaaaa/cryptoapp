@@ -93,18 +93,35 @@ test('シンボルが空だとバリデーションエラー', function () {
         ->assertSessionHasErrors('symbol');
 });
 
-test('同じシンボルは重複登録できない', function () {
+test('同じ coingecko_id は重複登録できない', function () {
     $admin = User::factory()->admin()->create();
-    Asset::factory()->create(['symbol' => 'BTC']);
+    Asset::factory()->create(['symbol' => 'ABC', 'coingecko_id' => 'dup-slug']);
 
     $this->actingAs($admin)
         ->from(route('assets.create'))
         ->post(route('assets.store'), [
-            'symbol' => 'BTC',
-            'name' => 'Another Bitcoin',
+            'symbol' => 'XYZ',
+            'name' => 'Other',
+            'coingecko_id' => 'dup-slug',
         ])
         ->assertRedirect(route('assets.create'))
-        ->assertSessionHasErrors('symbol');
+        ->assertSessionHasErrors('coingecko_id');
+});
+
+test('同じシンボルでも coingecko_id が異なれば登録できる', function () {
+    $admin = User::factory()->admin()->create();
+    Asset::factory()->create(['symbol' => 'FOO', 'coingecko_id' => 'foo-a']);
+
+    $this->actingAs($admin)
+        ->post(route('assets.store'), [
+            'symbol' => 'FOO',
+            'name' => 'Foo other chain',
+            'coingecko_id' => 'foo-b',
+        ])
+        ->assertRedirect(route('assets.index'))
+        ->assertSessionHas('success');
+
+    $this->assertDatabaseHas('assets', ['coingecko_id' => 'foo-b', 'symbol' => 'FOO']);
 });
 
 test('シンボルの不正な文字はバリデーションエラー', function () {

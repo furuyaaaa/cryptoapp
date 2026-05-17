@@ -92,7 +92,7 @@ function ExchangeHoldingsTable({ holdings }) {
                         <tr key={h.asset_id} className="hover:bg-gray-50">
                             <td className="whitespace-nowrap px-4 py-2">
                                 <Link
-                                    href={route('assets.show', h.symbol)}
+                                    href={route('assets.show', h.asset_id)}
                                     className="group flex items-center gap-3"
                                 >
                                     <AssetIcon

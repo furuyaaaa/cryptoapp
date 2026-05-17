@@ -3,6 +3,7 @@
 use App\Http\Controllers\AssetController;
 use App\Http\Controllers\Auth\TwoFactorAuthenticationController;
 use App\Http\Controllers\Auth\TwoFactorChallengeController;
+use App\Http\Controllers\BillingController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\ExchangeController;
 use App\Http\Controllers\PortfolioController;
@@ -33,11 +34,21 @@ Route::middleware('auth')->group(function () {
         ->name('two-factor.challenge.store');
 });
 
+Route::middleware(['auth', 'verified', '2fa'])->group(function () {
+    Route::get('/billing', [BillingController::class, 'index'])->name('billing');
+    Route::post('/billing/checkout', [BillingController::class, 'checkout'])->name('billing.checkout');
+    Route::post('/billing/portal', [BillingController::class, 'portal'])->name('billing.portal');
+});
+
+Route::middleware(['auth', 'verified', '2fa', 'admin', 'admin.2fa'])->group(function () {
+    Route::get('/admin/billing', [BillingController::class, 'adminIndex'])->name('admin.billing');
+});
+
 Route::get('/dashboard', DashboardController::class)
-    ->middleware(['auth', 'verified', '2fa'])
+    ->middleware(['auth', 'verified', '2fa', 'subscribed'])
     ->name('dashboard');
 
-Route::middleware(['auth', 'verified', '2fa', 'throttle:writes'])->group(function () {
+Route::middleware(['auth', 'verified', '2fa', 'subscribed', 'throttle:writes'])->group(function () {
     Route::resource('portfolios', PortfolioController::class)
         ->except(['show']);
 
@@ -45,6 +56,10 @@ Route::middleware(['auth', 'verified', '2fa', 'throttle:writes'])->group(functio
     Route::get('transactions/export', [TransactionController::class, 'export'])
         ->middleware('throttle:exports')
         ->name('transactions.export');
+
+    Route::get('transactions/asset-search', [TransactionController::class, 'assetSearch'])
+        ->middleware('throttle:60,1')
+        ->name('transactions.assets.search');
 
     Route::resource('transactions', TransactionController::class)
         ->except(['show']);
@@ -59,7 +74,8 @@ Route::middleware(['auth', 'verified', '2fa', 'throttle:writes'])->group(functio
         Route::delete('/assets/{asset}', [AssetController::class, 'destroy'])->name('assets.destroy');
     });
 
-    Route::get('/assets/{symbol}', [AssetController::class, 'show'])
+    Route::get('/assets/{asset}', [AssetController::class, 'show'])
+        ->whereNumber('asset')
         ->name('assets.show');
 
     Route::get('/exchanges', [ExchangeController::class, 'index'])

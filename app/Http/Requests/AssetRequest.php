@@ -30,11 +30,10 @@ class AssetRequest extends FormRequest
             'symbol' => [
                 'required',
                 'string',
-                'max:20',
+                'max:30',
                 'regex:/^[A-Z0-9]+$/',
-                Rule::unique('assets', 'symbol')->ignore($assetId),
             ],
-            'name' => ['required', 'string', 'max:100'],
+            'name' => ['required', 'string', 'max:200'],
             'coingecko_id' => [
                 'nullable',
                 'string',

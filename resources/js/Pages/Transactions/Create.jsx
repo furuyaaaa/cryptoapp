@@ -17,7 +17,7 @@ export default function Create({
 }) {
     const { data, setData, post, processing, errors, reset } = useForm({
         portfolio_id: defaultPortfolioId ?? '',
-        asset_id: assets[0]?.id ?? '',
+        asset_id: '',
         exchange_id: '',
         type: 'buy',
         amount: '',

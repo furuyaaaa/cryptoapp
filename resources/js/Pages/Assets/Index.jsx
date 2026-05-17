@@ -227,7 +227,7 @@ export default function Index({ assets, filters }) {
                                                 </td>
                                                 <td className="whitespace-nowrap px-4 py-3 text-right text-sm">
                                                     <Link
-                                                        href={route('assets.show', a.symbol)}
+                                                        href={route('assets.show', a.id)}
                                                         className="text-gray-600 hover:text-gray-900"
                                                     >
                                                         詳細

@@ -8,7 +8,7 @@ Artisan::command('inspire', function () {
     $this->comment(Inspiring::quote());
 })->purpose('Display an inspiring quote');
 
-Schedule::command('prices:update')
+Schedule::command('coingecko:fetch-asset-prices')
     ->everyFiveMinutes()
     ->withoutOverlapping()
     ->runInBackground();

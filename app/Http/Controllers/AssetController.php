@@ -9,6 +9,7 @@ use App\Services\AssetStatsService;
 use App\Support\LikePattern;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Collection;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -113,12 +114,9 @@ class AssetController extends Controller
             ->with('success', '銘柄を削除しました。');
     }
 
-    public function show(Request $request, AssetStatsService $stats, string $symbol): Response
+    public function show(Request $request, AssetStatsService $stats, Asset $asset): Response
     {
-        $asset = Asset::query()
-            ->with('latestPrice')
-            ->where('symbol', strtoupper($symbol))
-            ->firstOrFail();
+        $asset->loadMissing('latestPrice');
 
         $user = $request->user();
         $portfolioIds = $user->portfolios()->pluck('id');
@@ -195,7 +193,7 @@ class AssetController extends Controller
     }
 
     /**
-     * @param  \Illuminate\Support\Collection<int, Transaction>  $transactions
+     * @param  Collection<int, Transaction>  $transactions
      * @return array<string, mixed>
      */
     private function calculateHolding($transactions, float $currentPrice): array

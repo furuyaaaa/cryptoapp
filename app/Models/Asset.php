@@ -29,6 +29,8 @@ class Asset extends Model
 
     public function latestPrice()
     {
-        return $this->hasOne(AssetPrice::class)->latestOfMany('recorded_at');
+        // recorded_at だけだと ofMany の JOIN で PostgreSQL が asset_id を曖昧と判断するため、
+        // タイブレークに id を含める（Laravel の latestOfMany 複数カラム指定）。
+        return $this->hasOne(AssetPrice::class)->latestOfMany(['recorded_at', 'id']);
     }
 }
