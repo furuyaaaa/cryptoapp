@@ -21,6 +21,11 @@ class User extends Authenticatable
         return $this->hasMany(Portfolio::class);
     }
 
+    public function exchangeConnections(): HasMany
+    {
+        return $this->hasMany(ExchangeConnection::class);
+    }
+
     /**
      * The attributes that are mass assignable.
      *

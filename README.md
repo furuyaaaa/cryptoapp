@@ -15,7 +15,7 @@
 
 ## ダッシュボード
 
-![ダッシュボード（スクリーンショット）](docs/screenshots/dashboard.png)
+![ダッシュボード（スクリーンショット）](docs/screenshots/スクリーンショット%202026-05-17%20183905.png)
 
 ---
 
@@ -71,6 +71,27 @@
 
 ---
 
+## デモ
+
+未ログインで画面だけ確認する場合:
+
+```text
+http://127.0.0.1:8000/demo
+```
+
+デモユーザーでログインして操作する場合は、非本番環境でデモデータを投入します。
+
+```bash
+php artisan db:seed --class=DemoSeeder
+```
+
+ログイン情報:
+
+- メールアドレス: `demo@example.com`
+- パスワード: `password`
+
+---
+
 ## 主な機能
 
 - 取引履歴の登録（購入価格・数量）
@@ -78,6 +99,33 @@
 - 現在価格の取得（API 連携）
 - 損益の自動計算
 - 取引所別の管理
+- bitFlyer 約定履歴の同期（読み取り専用 API キー）
+
+---
+
+## bitFlyer 連携
+
+bitFlyer の読み取り専用 API キーを登録すると、bitFlyer の Market List API で取得できる JPY 建て Spot 商品の約定履歴を取引履歴へ取り込めます。
+
+1. bitFlyer 側で読み取り専用 API キーを作成する
+2. ログイン後、上部ナビの「連携」を開く
+3. 同期先ポートフォリオ、API Key、API Secret を登録する
+4. 「同期」を押して約定履歴を取り込む
+
+CLI でも登録・同期できます。
+
+```bash
+php artisan bitflyer:connect demo@example.com <portfolio_id>
+php artisan bitflyer:sync-executions
+```
+
+発注、取消、出金系の権限が付いた API キーは登録時に拒否されます。BTC 建て商品は JPY 換算が別途必要なため対象外です。詳しい運用手順は [docs/bitflyer-sync.md](docs/bitflyer-sync.md) を参照してください。
+
+定期同期を使う場合はスケジューラを起動してください。
+
+```bash
+php artisan schedule:work
+```
 
 ---
 
@@ -87,7 +135,7 @@
 - PostgreSQL
 - Inertia.js・React
 - Tailwind CSS・Vite
-- 外部 API（価格取得）
+- 外部 API（CoinGecko 価格取得、bitFlyer 約定履歴同期）
 
 ---
 
@@ -96,7 +144,10 @@
 ```mermaid
 erDiagram
     users ||--o{ transactions : has
+    users ||--o{ exchange_connections : has
     exchanges ||--o{ transactions : has
+    exchanges ||--o{ exchange_connections : has
+    portfolios ||--o{ exchange_connections : has
     assets ||--o{ transactions : has
     assets ||--o{ asset_prices : has
 ```

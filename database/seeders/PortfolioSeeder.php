@@ -14,7 +14,8 @@ class PortfolioSeeder extends Seeder
 {
     public function run(): void
     {
-        $user = User::firstWhere('email', 'test@example.com');
+        $user = User::firstWhere('email', 'demo@example.com')
+            ?? User::firstWhere('email', 'test@example.com');
         if (! $user) {
             $this->command->warn('Test user not found, skip PortfolioSeeder');
 

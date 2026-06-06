@@ -20,4 +20,9 @@ class Exchange extends Model
     {
         return $this->hasMany(Transaction::class);
     }
+
+    public function connections(): HasMany
+    {
+        return $this->hasMany(ExchangeConnection::class);
+    }
 }

@@ -61,6 +61,12 @@ export default function AuthenticatedLayout({ header, children }) {
                                 >
                                     取引所
                                 </NavLink>
+                                <NavLink
+                                    href={route('exchange-connections.index')}
+                                    active={route().current('exchange-connections.*')}
+                                >
+                                    連携
+                                </NavLink>
                                 <NavLink href={billingHref} active={billingActive}>
                                     プラン
                                 </NavLink>
@@ -208,6 +214,12 @@ export default function AuthenticatedLayout({ header, children }) {
                             active={route().current('exchanges.*')}
                         >
                             取引所
+                        </ResponsiveNavLink>
+                        <ResponsiveNavLink
+                            href={route('exchange-connections.index')}
+                            active={route().current('exchange-connections.*')}
+                        >
+                            連携
                         </ResponsiveNavLink>
                         <ResponsiveNavLink
                             href={billingHref}

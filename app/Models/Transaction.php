@@ -25,6 +25,9 @@ class Transaction extends Model
         'fee_jpy',
         'executed_at',
         'note',
+        'external_source',
+        'external_id',
+        'synced_at',
     ];
 
     protected $casts = [
@@ -32,6 +35,7 @@ class Transaction extends Model
         'amount' => 'decimal:8',
         'price_jpy' => 'decimal:8',
         'fee_jpy' => 'decimal:8',
+        'synced_at' => 'datetime',
     ];
 
     public function portfolio(): BelongsTo
