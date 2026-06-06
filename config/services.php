@@ -35,4 +35,8 @@ return [
         ],
     ],
 
+    'bitflyer' => [
+        'base_url' => env('BITFLYER_BASE_URL', 'https://api.bitflyer.com'),
+    ],
+
 ];

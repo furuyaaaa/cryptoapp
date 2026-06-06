@@ -29,6 +29,15 @@ class DemoSeeder extends Seeder
         }
 
         User::firstOrCreate(
+            ['email' => 'demo@example.com'],
+            [
+                'name' => 'Demo User',
+                'password' => Hash::make('password'),
+                'email_verified_at' => now(),
+            ]
+        );
+
+        User::firstOrCreate(
             ['email' => 'test@example.com'],
             [
                 'name' => 'Test User',

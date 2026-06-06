@@ -5,6 +5,8 @@ use App\Http\Controllers\Auth\TwoFactorAuthenticationController;
 use App\Http\Controllers\Auth\TwoFactorChallengeController;
 use App\Http\Controllers\BillingController;
 use App\Http\Controllers\DashboardController;
+use App\Http\Controllers\DemoController;
+use App\Http\Controllers\ExchangeConnectionController;
 use App\Http\Controllers\ExchangeController;
 use App\Http\Controllers\PortfolioController;
 use App\Http\Controllers\ProfileController;
@@ -22,6 +24,8 @@ Route::get('/', function () {
         'phpVersion' => PHP_VERSION,
     ]);
 });
+
+Route::get('/demo', DemoController::class)->name('demo');
 
 // 2FA チャレンジ画面は認証済みだが 2FA 未確認のユーザーが触る場所のため、
 // auth のみ適用し、`2fa` は意図的に付けない。
@@ -80,6 +84,15 @@ Route::middleware(['auth', 'verified', '2fa', 'subscribed', 'throttle:writes'])-
 
     Route::get('/exchanges', [ExchangeController::class, 'index'])
         ->name('exchanges.index');
+
+    Route::get('/exchange-connections', [ExchangeConnectionController::class, 'index'])
+        ->name('exchange-connections.index');
+    Route::post('/exchange-connections', [ExchangeConnectionController::class, 'store'])
+        ->name('exchange-connections.store');
+    Route::post('/exchange-connections/{connection}/sync', [ExchangeConnectionController::class, 'sync'])
+        ->name('exchange-connections.sync');
+    Route::delete('/exchange-connections/{connection}', [ExchangeConnectionController::class, 'destroy'])
+        ->name('exchange-connections.destroy');
 
     Route::get('/tax/export', [TaxController::class, 'export'])
         ->middleware('throttle:exports')
