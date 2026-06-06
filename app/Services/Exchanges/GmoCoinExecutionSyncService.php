@@ -4,10 +4,13 @@ namespace App\Services\Exchanges;
 
 use App\Models\ExchangeConnection;
 use App\Models\Transaction;
+use App\Services\Exchanges\Concerns\SkipsExecutionsBeforeSyncStart;
 use Throwable;
 
 class GmoCoinExecutionSyncService
 {
+    use SkipsExecutionsBeforeSyncStart;
+
     public const ALL_SPOT_SYMBOLS = 'ALL_SPOT_SYMBOLS';
 
     public const SUPPORTED_SPOT_SYMBOLS = [
@@ -75,7 +78,14 @@ class GmoCoinExecutionSyncService
                         continue;
                     }
 
-                    Transaction::create($this->mapper->map($connection, $execution));
+                    $mapped = $this->mapper->map($connection, $execution);
+                    if ($this->isBeforeSyncStart($connection, $mapped)) {
+                        $skipped++;
+
+                        continue;
+                    }
+
+                    Transaction::create($mapped);
                     $imported++;
                 }
             }

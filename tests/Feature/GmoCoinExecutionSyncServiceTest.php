@@ -18,6 +18,15 @@ test('GMO Coin sync imports spot executions and skips duplicates', function () {
             'data' => [
                 'list' => [
                     [
+                        'executionId' => 12344,
+                        'symbol' => 'BTC',
+                        'side' => 'BUY',
+                        'size' => '0.02',
+                        'price' => '9000000',
+                        'fee' => '-10',
+                        'timestamp' => '2025-12-30T00:00:00.000Z',
+                    ],
+                    [
                         'executionId' => 12345,
                         'symbol' => 'BTC',
                         'side' => 'BUY',
@@ -42,6 +51,7 @@ test('GMO Coin sync imports spot executions and skips duplicates', function () {
         'api_key' => 'key',
         'api_secret' => 'secret',
         'product_code' => 'BTC',
+        'sync_start_at' => '2026-01-01 00:00:00',
         'is_active' => true,
     ]);
 
@@ -50,8 +60,8 @@ test('GMO Coin sync imports spot executions and skips duplicates', function () {
     $first = $service->sync($connection);
     $second = $service->sync($connection->refresh());
 
-    expect($first)->toMatchArray(['fetched' => 1, 'imported' => 1, 'skipped' => 0]);
-    expect($second)->toMatchArray(['fetched' => 1, 'imported' => 0, 'skipped' => 1]);
+    expect($first)->toMatchArray(['fetched' => 2, 'imported' => 1, 'skipped' => 1]);
+    expect($second)->toMatchArray(['fetched' => 2, 'imported' => 0, 'skipped' => 2]);
 
     $transaction = Transaction::first();
     expect(Transaction::count())->toBe(1)

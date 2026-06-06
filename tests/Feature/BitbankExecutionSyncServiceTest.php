@@ -28,6 +28,15 @@ test('bitbank sync imports JPY spot trades and skips duplicates', function () {
             'data' => [
                 'trades' => [
                     [
+                        'trade_id' => 122,
+                        'pair' => 'btc_jpy',
+                        'side' => 'buy',
+                        'amount' => '0.02',
+                        'price' => '9000000',
+                        'fee_amount_quote' => '10',
+                        'executed_at' => 1767139200000,
+                    ],
+                    [
                         'trade_id' => 123,
                         'pair' => 'btc_jpy',
                         'side' => 'buy',
@@ -52,6 +61,7 @@ test('bitbank sync imports JPY spot trades and skips duplicates', function () {
         'api_key' => 'key',
         'api_secret' => 'secret',
         'product_code' => BitbankExecutionSyncService::ALL_JPY_PAIRS,
+        'sync_start_at' => '2026-01-01 00:00:00',
         'is_active' => true,
     ]);
 
@@ -60,8 +70,8 @@ test('bitbank sync imports JPY spot trades and skips duplicates', function () {
     $first = $service->sync($connection);
     $second = $service->sync($connection->refresh());
 
-    expect($first)->toMatchArray(['fetched' => 1, 'imported' => 1, 'skipped' => 0]);
-    expect($second)->toMatchArray(['fetched' => 1, 'imported' => 0, 'skipped' => 1]);
+    expect($first)->toMatchArray(['fetched' => 2, 'imported' => 1, 'skipped' => 1]);
+    expect($second)->toMatchArray(['fetched' => 2, 'imported' => 0, 'skipped' => 2]);
 
     $transaction = Transaction::first();
     expect(Transaction::count())->toBe(1)

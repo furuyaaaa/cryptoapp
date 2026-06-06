@@ -21,6 +21,18 @@ bitFlyer 側では読み取り専用の API キーを作成してください。
 php artisan bitflyer:connect demo@example.com 2
 ```
 
+デフォルトでは登録日当日以降の約定だけを同期します。過去分も含める場合:
+
+```bash
+php artisan bitflyer:connect demo@example.com 2 --sync-start-date=all
+```
+
+日付を指定する場合:
+
+```bash
+php artisan bitflyer:connect demo@example.com 2 --sync-start-date=2026-01-01
+```
+
 非対話で登録する場合:
 
 ```bash

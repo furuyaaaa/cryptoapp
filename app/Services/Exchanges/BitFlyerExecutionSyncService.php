@@ -4,10 +4,13 @@ namespace App\Services\Exchanges;
 
 use App\Models\ExchangeConnection;
 use App\Models\Transaction;
+use App\Services\Exchanges\Concerns\SkipsExecutionsBeforeSyncStart;
 use Throwable;
 
 class BitFlyerExecutionSyncService
 {
+    use SkipsExecutionsBeforeSyncStart;
+
     public const ALL_SPOT_JPY = 'ALL_SPOT_JPY';
 
     public function __construct(private readonly BitFlyerExecutionMapper $mapper) {}
@@ -54,7 +57,14 @@ class BitFlyerExecutionSyncService
                         continue;
                     }
 
-                    Transaction::create($this->mapper->map($connection, $execution, $productCode));
+                    $mapped = $this->mapper->map($connection, $execution, $productCode);
+                    if ($this->isBeforeSyncStart($connection, $mapped)) {
+                        $skipped++;
+
+                        continue;
+                    }
+
+                    Transaction::create($mapped);
                     $imported++;
                 }
             }

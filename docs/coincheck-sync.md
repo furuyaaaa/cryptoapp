@@ -21,6 +21,18 @@ Coincheck API ではキーごとに機能権限を設定できます。アプリ
 php artisan coincheck:connect demo@example.com 2
 ```
 
+デフォルトでは登録日当日以降の取引だけを同期します。過去分も含める場合:
+
+```bash
+php artisan coincheck:connect demo@example.com 2 --sync-start-date=all
+```
+
+日付を指定する場合:
+
+```bash
+php artisan coincheck:connect demo@example.com 2 --sync-start-date=2026-01-01
+```
+
 対話入力を避ける場合:
 
 ```bash

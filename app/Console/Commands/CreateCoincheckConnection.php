@@ -9,6 +9,7 @@ use App\Models\User;
 use App\Services\Exchanges\CoincheckClient;
 use App\Services\Exchanges\CoincheckExecutionSyncService;
 use Illuminate\Console\Command;
+use Illuminate\Support\Carbon;
 
 class CreateCoincheckConnection extends Command
 {
@@ -18,6 +19,7 @@ class CreateCoincheckConnection extends Command
         {--pair=ALL_JPY_PAIRS : Coincheck pair}
         {--key= : Coincheck API Key}
         {--secret= : Coincheck API Secret}
+        {--sync-start-date=today : today, all, or YYYY-MM-DD}
         {--skip-read-check : 読み取りAPIを呼ばずに保存する}';
 
     protected $description = 'Coincheck の読み取り用APIキーを暗号化保存する';
@@ -60,6 +62,7 @@ class CreateCoincheckConnection extends Command
                 'label' => 'Coincheck '.$this->labelForPair($pair),
                 'api_key' => $key,
                 'api_secret' => $secret,
+                'sync_start_at' => $this->syncStartAt(),
                 'is_active' => true,
             ],
         );
@@ -74,5 +77,16 @@ class CreateCoincheckConnection extends Command
         return $pair === CoincheckExecutionSyncService::ALL_JPY_PAIRS
             ? '全JPY建て取引所ペア'
             : $pair;
+    }
+
+    private function syncStartAt(): ?Carbon
+    {
+        $value = (string) $this->option('sync-start-date');
+
+        if ($value === 'all') {
+            return null;
+        }
+
+        return ($value === 'today' ? today() : Carbon::createFromFormat('Y-m-d', $value))->startOfDay();
     }
 }

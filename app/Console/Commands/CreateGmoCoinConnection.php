@@ -9,6 +9,7 @@ use App\Models\User;
 use App\Services\Exchanges\GmoCoinClient;
 use App\Services\Exchanges\GmoCoinExecutionSyncService;
 use Illuminate\Console\Command;
+use Illuminate\Support\Carbon;
 
 class CreateGmoCoinConnection extends Command
 {
@@ -18,6 +19,7 @@ class CreateGmoCoinConnection extends Command
         {--symbol=ALL_SPOT_SYMBOLS : GMO Coin spot symbol}
         {--key= : GMO Coin API Key}
         {--secret= : GMO Coin API Secret}
+        {--sync-start-date=today : today, all, or YYYY-MM-DD}
         {--skip-read-check : 読み取りAPIを呼ばずに保存する}';
 
     protected $description = 'GMOコイン の読み取り用APIキーを暗号化保存する';
@@ -60,6 +62,7 @@ class CreateGmoCoinConnection extends Command
                 'label' => 'GMOコイン '.$this->labelForSymbol($symbol),
                 'api_key' => $key,
                 'api_secret' => $secret,
+                'sync_start_at' => $this->syncStartAt(),
                 'is_active' => true,
             ],
         );
@@ -74,5 +77,16 @@ class CreateGmoCoinConnection extends Command
         return $symbol === GmoCoinExecutionSyncService::ALL_SPOT_SYMBOLS
             ? '全現物銘柄'
             : $symbol;
+    }
+
+    private function syncStartAt(): ?Carbon
+    {
+        $value = (string) $this->option('sync-start-date');
+
+        if ($value === 'all') {
+            return null;
+        }
+
+        return ($value === 'today' ? today() : Carbon::createFromFormat('Y-m-d', $value))->startOfDay();
     }
 }

@@ -15,6 +15,7 @@ class ExchangeConnection extends Model
         'api_key',
         'api_secret',
         'product_code',
+        'sync_start_at',
         'is_active',
         'last_synced_at',
         'last_error_at',
@@ -24,6 +25,7 @@ class ExchangeConnection extends Model
     protected $casts = [
         'api_key' => 'encrypted',
         'api_secret' => 'encrypted',
+        'sync_start_at' => 'datetime',
         'is_active' => 'boolean',
         'last_synced_at' => 'datetime',
         'last_error_at' => 'datetime',

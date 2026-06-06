@@ -37,6 +37,8 @@ class ExchangeConnectionRequest extends FormRequest
             ])],
             'api_key' => ['required', 'string', 'max:255'],
             'api_secret' => ['required', 'string', 'max:255'],
+            'sync_start_mode' => ['required', 'string', Rule::in(['today', 'all', 'custom'])],
+            'sync_start_date' => ['nullable', 'required_if:sync_start_mode,custom', 'date_format:Y-m-d'],
         ];
     }
 
@@ -48,6 +50,8 @@ class ExchangeConnectionRequest extends FormRequest
             'product_code' => '商品コード',
             'api_key' => 'API Key',
             'api_secret' => 'API Secret',
+            'sync_start_mode' => '同期開始',
+            'sync_start_date' => '同期開始日',
         ];
     }
 
