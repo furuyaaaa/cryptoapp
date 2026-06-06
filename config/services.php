@@ -39,4 +39,16 @@ return [
         'base_url' => env('BITFLYER_BASE_URL', 'https://api.bitflyer.com'),
     ],
 
+    'bitbank' => [
+        'base_url' => env('BITBANK_BASE_URL', 'https://api.bitbank.cc'),
+    ],
+
+    'coincheck' => [
+        'base_url' => env('COINCHECK_BASE_URL', 'https://coincheck.com'),
+    ],
+
+    'gmo_coin' => [
+        'base_url' => env('GMO_COIN_BASE_URL', 'https://api.coin.z.com/private'),
+    ],
+
 ];

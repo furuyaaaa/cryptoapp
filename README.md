@@ -100,6 +100,17 @@ php artisan db:seed --class=DemoSeeder
 - 損益の自動計算
 - 取引所別の管理
 - bitFlyer 約定履歴の同期（読み取り専用 API キー）
+- bitbank / Coincheck / GMOコインの約定履歴同期
+
+---
+
+## 取引所 API 連携の仕組み
+
+ユーザーが各取引所にログインし、取引所の設定画面で API Key / API Secret を発行します。その API Key / API Secret をこのアプリの「連携」画面に登録すると、アプリが取引所 API から売買済みの約定履歴を取得し、取引履歴へ反映します。
+
+このアプリに取引所のログインIDやパスワードを入力する必要はありません。登録するのは、取引所が発行した API Key / API Secret だけです。
+
+APIキーは必ず読み取り専用、または約定履歴・残高確認に必要な最小権限で作成してください。売買、注文取消、送金、出金などの更新権限は不要です。API Secret は保存時に暗号化され、`.env` や Git には保存しません。
 
 ---
 
@@ -127,6 +138,39 @@ php artisan bitflyer:sync-executions
 php artisan schedule:work
 ```
 
+## bitbank 連携
+
+bitbank の API キーを登録すると、bitbank の Pair List API で取得できる有効な JPY 建て現物ペアの約定履歴を取引履歴へ取り込めます。
+
+```bash
+php artisan bitbank:connect demo@example.com <portfolio_id>
+php artisan bitbank:sync-executions
+```
+
+bitbank API では権限一覧を取得できないため、登録時は読み取りAPIの疎通だけを確認します。APIキーには売買・出金権限を付けないでください。詳しい運用手順は [docs/bitbank-sync.md](docs/bitbank-sync.md) を参照してください。
+
+## Coincheck 連携
+
+Coincheck の API キーを登録すると、Coincheck 取引所の JPY 建てペアの取引履歴を取引履歴へ取り込めます。
+
+```bash
+php artisan coincheck:connect demo@example.com <portfolio_id>
+php artisan coincheck:sync-executions
+```
+
+APIキーには読み取りに必要な権限だけを付与し、売買・送金権限を付けないでください。詳しい運用手順は [docs/coincheck-sync.md](docs/coincheck-sync.md) を参照してください。
+
+## GMOコイン 連携
+
+GMOコインの API キーを登録すると、GMOコインの現物約定履歴を取引履歴へ取り込めます。
+
+```bash
+php artisan gmo-coin:connect demo@example.com <portfolio_id>
+php artisan gmo-coin:sync-executions
+```
+
+APIキーには読み取りに必要な権限だけを付与し、売買・出金権限を付けないでください。GMOコインの最新約定 API は直近の履歴が対象のため、過去分の初回バックフィルは CSV インポートなど別経路で扱う必要があります。詳しい運用手順は [docs/gmo-coin-sync.md](docs/gmo-coin-sync.md) を参照してください。
+
 ---
 
 ## 使用技術
@@ -135,7 +179,7 @@ php artisan schedule:work
 - PostgreSQL
 - Inertia.js・React
 - Tailwind CSS・Vite
-- 外部 API（CoinGecko 価格取得、bitFlyer 約定履歴同期）
+- 外部 API（CoinGecko 価格取得、各取引所の約定履歴同期）
 
 ---
 

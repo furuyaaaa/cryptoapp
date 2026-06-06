@@ -7,6 +7,25 @@ import TextInput from '@/Components/TextInput';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 import { Head, router, useForm, usePage } from '@inertiajs/react';
 
+const productOptions = {
+    bitflyer: [
+        { value: 'ALL_SPOT_JPY', label: 'すべてのJPY建てSpot' },
+        { value: 'BTC_JPY', label: 'BTC_JPYのみ' },
+    ],
+    bitbank: [
+        { value: 'ALL_JPY_PAIRS', label: 'すべてのJPY建て現物' },
+        { value: 'btc_jpy', label: 'btc_jpyのみ' },
+    ],
+    coincheck: [
+        { value: 'ALL_JPY_PAIRS', label: 'すべてのJPY建て取引所ペア' },
+        { value: 'btc_jpy', label: 'btc_jpyのみ' },
+    ],
+    gmo_coin: [
+        { value: 'ALL_SPOT_SYMBOLS', label: 'すべての現物銘柄' },
+        { value: 'BTC', label: 'BTCのみ' },
+    ],
+};
+
 const dateLabel = (iso) => {
     if (!iso) return '-';
     return new Date(iso).toLocaleString('ja-JP', {
@@ -102,10 +121,19 @@ function ConnectionRow({ connection }) {
 function ConnectionForm({ portfolios }) {
     const { data, setData, post, processing, errors, reset } = useForm({
         portfolio_id: portfolios[0]?.id ?? '',
+        exchange_code: 'bitflyer',
         product_code: 'ALL_SPOT_JPY',
         api_key: '',
         api_secret: '',
     });
+
+    const setExchange = (exchangeCode) => {
+        setData((values) => ({
+            ...values,
+            exchange_code: exchangeCode,
+            product_code: productOptions[exchangeCode][0].value,
+        }));
+    };
 
     const submit = (e) => {
         e.preventDefault();
@@ -118,6 +146,22 @@ function ConnectionForm({ portfolios }) {
     return (
         <form onSubmit={submit} className="space-y-5">
             <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                <div>
+                    <InputLabel htmlFor="exchange_code" value="取引所" />
+                    <select
+                        id="exchange_code"
+                        value={data.exchange_code}
+                        onChange={(e) => setExchange(e.target.value)}
+                        className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+                    >
+                        <option value="bitflyer">bitFlyer</option>
+                        <option value="bitbank">bitbank</option>
+                        <option value="coincheck">Coincheck</option>
+                        <option value="gmo_coin">GMOコイン</option>
+                    </select>
+                    <InputError message={errors.exchange_code} className="mt-2" />
+                </div>
+
                 <div>
                     <InputLabel htmlFor="portfolio_id" value="同期先ポートフォリオ" />
                     <select
@@ -134,7 +178,9 @@ function ConnectionForm({ portfolios }) {
                     </select>
                     <InputError message={errors.portfolio_id} className="mt-2" />
                 </div>
+            </div>
 
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
                 <div>
                     <InputLabel htmlFor="product_code" value="商品コード" />
                     <select
@@ -143,14 +189,15 @@ function ConnectionForm({ portfolios }) {
                         onChange={(e) => setData('product_code', e.target.value)}
                         className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
                     >
-                        <option value="ALL_SPOT_JPY">すべてのJPY建てSpot</option>
-                        <option value="BTC_JPY">BTC_JPYのみ</option>
+                        {productOptions[data.exchange_code].map((option) => (
+                            <option key={option.value} value={option.value}>
+                                {option.label}
+                            </option>
+                        ))}
                     </select>
                     <InputError message={errors.product_code} className="mt-2" />
                 </div>
-            </div>
 
-            <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
                 <div>
                     <InputLabel htmlFor="api_key" value="API Key" />
                     <TextInput
@@ -215,7 +262,7 @@ export default function Index({ connections, portfolios }) {
                     <div className="rounded-lg bg-white p-6 shadow">
                         <div className="mb-5 border-b border-gray-200 pb-4">
                             <h3 className="text-base font-semibold text-gray-900">
-                                bitFlyer APIキー
+                                取引所APIキー
                             </h3>
                         </div>
                         {portfolios.length > 0 ? (
