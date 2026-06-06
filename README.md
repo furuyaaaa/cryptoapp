@@ -127,6 +127,17 @@ php artisan bitflyer:sync-executions
 php artisan schedule:work
 ```
 
+## bitbank 連携
+
+bitbank の API キーを登録すると、bitbank の Pair List API で取得できる有効な JPY 建て現物ペアの約定履歴を取引履歴へ取り込めます。
+
+```bash
+php artisan bitbank:connect demo@example.com <portfolio_id>
+php artisan bitbank:sync-executions
+```
+
+bitbank API では権限一覧を取得できないため、登録時は読み取りAPIの疎通だけを確認します。APIキーには売買・出金権限を付けないでください。詳しい運用手順は [docs/bitbank-sync.md](docs/bitbank-sync.md) を参照してください。
+
 ---
 
 ## 使用技術

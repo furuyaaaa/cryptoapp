@@ -39,4 +39,8 @@ return [
         'base_url' => env('BITFLYER_BASE_URL', 'https://api.bitflyer.com'),
     ],
 
+    'bitbank' => [
+        'base_url' => env('BITBANK_BASE_URL', 'https://api.bitbank.cc'),
+    ],
+
 ];

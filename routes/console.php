@@ -16,3 +16,7 @@ Schedule::command('coingecko:fetch-asset-prices')
 Schedule::command('bitflyer:sync-executions')
     ->everyThirtyMinutes()
     ->withoutOverlapping();
+
+Schedule::command('bitbank:sync-executions')
+    ->everyThirtyMinutes()
+    ->withoutOverlapping();
