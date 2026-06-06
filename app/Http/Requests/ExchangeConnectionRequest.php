@@ -6,6 +6,7 @@ use App\Services\Exchanges\BitbankExecutionSyncService;
 use App\Services\Exchanges\BitFlyerExecutionSyncService;
 use App\Services\Exchanges\CoincheckExecutionSyncService;
 use App\Services\Exchanges\GmoCoinExecutionSyncService;
+use App\Services\Exchanges\ZaifExecutionSyncService;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\Validator;
@@ -25,12 +26,13 @@ class ExchangeConnectionRequest extends FormRequest
                 'integer',
                 Rule::exists('portfolios', 'id')->where('user_id', $this->user()->id),
             ],
-            'exchange_code' => ['required', 'string', Rule::in(['bitflyer', 'bitbank', 'coincheck', 'gmo_coin'])],
+            'exchange_code' => ['required', 'string', Rule::in(['bitflyer', 'bitbank', 'coincheck', 'gmo_coin', 'zaif'])],
             'product_code' => ['required', 'string', Rule::in([
                 BitFlyerExecutionSyncService::ALL_SPOT_JPY,
                 BitbankExecutionSyncService::ALL_JPY_PAIRS,
                 CoincheckExecutionSyncService::ALL_JPY_PAIRS,
                 GmoCoinExecutionSyncService::ALL_SPOT_SYMBOLS,
+                ZaifExecutionSyncService::ALL_JPY_PAIRS,
                 'BTC_JPY',
                 'btc_jpy',
                 'BTC',
@@ -77,6 +79,10 @@ class ExchangeConnectionRequest extends FormRequest
                 'gmo_coin' => in_array($productCode, [
                     GmoCoinExecutionSyncService::ALL_SPOT_SYMBOLS,
                     'BTC',
+                ], true),
+                'zaif' => in_array($productCode, [
+                    ZaifExecutionSyncService::ALL_JPY_PAIRS,
+                    'btc_jpy',
                 ], true),
                 default => false,
             };

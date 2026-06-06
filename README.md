@@ -100,7 +100,7 @@ php artisan db:seed --class=DemoSeeder
 - 損益の自動計算
 - 取引所別の管理
 - bitFlyer 約定履歴の同期（読み取り専用 API キー）
-- bitbank / Coincheck / GMOコインの約定履歴同期
+- bitbank / Coincheck / GMOコイン / Zaif の約定履歴同期
 
 ---
 
@@ -178,6 +178,17 @@ php artisan gmo-coin:sync-executions
 ```
 
 APIキーには読み取りに必要な権限だけを付与し、売買・出金権限を付けないでください。GMOコインの最新約定 API は直近の履歴が対象のため、過去分の初回バックフィルは CSV インポートなど別経路で扱う必要があります。詳しい運用手順は [docs/gmo-coin-sync.md](docs/gmo-coin-sync.md) を参照してください。
+
+## Zaif 連携
+
+Zaif の API キーを登録すると、Zaif Orderbook Trading の JPY 建て現物約定履歴を取引履歴へ取り込めます。
+
+```bash
+php artisan zaif:connect demo@example.com <portfolio_id>
+php artisan zaif:sync-executions
+```
+
+APIキーには `info` 権限だけを付与し、売買・出金権限を付けないでください。かんたん売買など API で取得できない履歴は、取引履歴画面から手動で追加してください。詳しい運用手順は [docs/zaif-sync.md](docs/zaif-sync.md) を参照してください。
 
 ---
 

@@ -13,6 +13,8 @@ use App\Services\Exchanges\CoincheckClient;
 use App\Services\Exchanges\CoincheckExecutionSyncService;
 use App\Services\Exchanges\GmoCoinClient;
 use App\Services\Exchanges\GmoCoinExecutionSyncService;
+use App\Services\Exchanges\ZaifClient;
+use App\Services\Exchanges\ZaifExecutionSyncService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
@@ -99,6 +101,7 @@ class ExchangeConnectionController extends Controller
         BitbankExecutionSyncService $bitbankSync,
         CoincheckExecutionSyncService $coincheckSync,
         GmoCoinExecutionSyncService $gmoCoinSync,
+        ZaifExecutionSyncService $zaifSync,
     ): RedirectResponse {
         abort_unless($connection->user_id === $request->user()->id, 403);
         $connection->loadMissing('exchange');
@@ -109,6 +112,7 @@ class ExchangeConnectionController extends Controller
                 'bitbank' => $bitbankSync->sync($connection),
                 'coincheck' => $coincheckSync->sync($connection),
                 'gmo_coin' => $gmoCoinSync->sync($connection),
+                'zaif' => $zaifSync->sync($connection),
                 default => throw new \RuntimeException('Unsupported exchange: '.$connection->exchange->code),
             };
         } catch (Throwable $e) {
@@ -137,6 +141,7 @@ class ExchangeConnectionController extends Controller
             'bitbank' => $this->assertReadableBitbankKey($apiKey, $apiSecret),
             'coincheck' => $this->assertReadableCoincheckKey($apiKey, $apiSecret),
             'gmo_coin' => $this->assertReadableGmoCoinKey($apiKey, $apiSecret),
+            'zaif' => $this->assertReadableZaifKey($apiKey, $apiSecret),
             default => throw new \RuntimeException('Unsupported exchange: '.$exchangeCode),
         };
     }
@@ -189,6 +194,16 @@ class ExchangeConnectionController extends Controller
             ->assets();
     }
 
+    private function assertReadableZaifKey(string $apiKey, string $apiSecret): void
+    {
+        $info = (new ZaifClient($apiKey, $apiSecret, config('services.zaif.base_url')))
+            ->info();
+
+        if ((int) data_get($info, 'rights.info', 0) !== 1) {
+            throw new \RuntimeException('Zaif APIキーには info 権限が必要です。');
+        }
+    }
+
     private function labelForConnection(string $exchangeCode, string $productCode): string
     {
         return match ($exchangeCode) {
@@ -196,6 +211,7 @@ class ExchangeConnectionController extends Controller
             'bitbank' => 'bitbank '.$this->labelForBitbankPair($productCode),
             'coincheck' => 'Coincheck '.$this->labelForCoincheckPair($productCode),
             'gmo_coin' => 'GMOコイン '.$this->labelForGmoCoinSymbol($productCode),
+            'zaif' => 'Zaif '.$this->labelForZaifPair($productCode),
             default => $exchangeCode.' '.$productCode,
         };
     }
@@ -207,6 +223,7 @@ class ExchangeConnectionController extends Controller
             'bitbank' => 'bitbank',
             'coincheck' => 'Coincheck',
             'gmo_coin' => 'GMOコイン',
+            'zaif' => 'Zaif',
             default => $exchangeCode,
         };
     }
@@ -237,5 +254,12 @@ class ExchangeConnectionController extends Controller
         return $symbol === GmoCoinExecutionSyncService::ALL_SPOT_SYMBOLS
             ? '全現物銘柄'
             : $symbol;
+    }
+
+    private function labelForZaifPair(string $pair): string
+    {
+        return $pair === ZaifExecutionSyncService::ALL_JPY_PAIRS
+            ? '全JPY建て現物'
+            : $pair;
     }
 }
