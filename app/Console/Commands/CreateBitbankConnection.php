@@ -9,6 +9,7 @@ use App\Models\User;
 use App\Services\Exchanges\BitbankClient;
 use App\Services\Exchanges\BitbankExecutionSyncService;
 use Illuminate\Console\Command;
+use Illuminate\Support\Carbon;
 
 class CreateBitbankConnection extends Command
 {
@@ -18,6 +19,7 @@ class CreateBitbankConnection extends Command
         {--pair=ALL_JPY_PAIRS : bitbank pair}
         {--key= : bitbank API Key}
         {--secret= : bitbank API Secret}
+        {--sync-start-date=today : today, all, or YYYY-MM-DD}
         {--skip-read-check : 読み取りAPIを呼ばずに保存する}';
 
     protected $description = 'bitbank の読み取り用APIキーを暗号化保存する';
@@ -59,6 +61,7 @@ class CreateBitbankConnection extends Command
                 'label' => 'bitbank '.$this->labelForPair($pair),
                 'api_key' => $key,
                 'api_secret' => $secret,
+                'sync_start_at' => $this->syncStartAt(),
                 'is_active' => true,
             ],
         );
@@ -73,5 +76,16 @@ class CreateBitbankConnection extends Command
         return $pair === BitbankExecutionSyncService::ALL_JPY_PAIRS
             ? '全JPY建て現物'
             : $pair;
+    }
+
+    private function syncStartAt(): ?Carbon
+    {
+        $value = (string) $this->option('sync-start-date');
+
+        if ($value === 'all') {
+            return null;
+        }
+
+        return ($value === 'today' ? today() : Carbon::createFromFormat('Y-m-d', $value))->startOfDay();
     }
 }

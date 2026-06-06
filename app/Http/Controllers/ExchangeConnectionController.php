@@ -15,6 +15,7 @@ use App\Services\Exchanges\GmoCoinClient;
 use App\Services\Exchanges\GmoCoinExecutionSyncService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Carbon;
 use Inertia\Inertia;
 use Inertia\Response;
 use Throwable;
@@ -37,6 +38,7 @@ class ExchangeConnectionController extends Controller
                     'exchange' => $connection->exchange,
                     'portfolio' => $connection->portfolio,
                     'product_code' => $connection->product_code,
+                    'sync_start_at' => $connection->sync_start_at?->toDateString(),
                     'is_active' => $connection->is_active,
                     'last_synced_at' => $connection->last_synced_at?->toIso8601String(),
                     'last_error_at' => $connection->last_error_at?->toIso8601String(),
@@ -78,6 +80,7 @@ class ExchangeConnectionController extends Controller
                 'label' => $this->labelForConnection($exchangeCode, $validated['product_code']),
                 'api_key' => $validated['api_key'],
                 'api_secret' => $validated['api_secret'],
+                'sync_start_at' => $this->syncStartAt($validated),
                 'is_active' => true,
                 'last_error_at' => null,
                 'last_error' => null,
@@ -135,6 +138,18 @@ class ExchangeConnectionController extends Controller
             'coincheck' => $this->assertReadableCoincheckKey($apiKey, $apiSecret),
             'gmo_coin' => $this->assertReadableGmoCoinKey($apiKey, $apiSecret),
             default => throw new \RuntimeException('Unsupported exchange: '.$exchangeCode),
+        };
+    }
+
+    /**
+     * @param  array<string, mixed>  $validated
+     */
+    private function syncStartAt(array $validated): ?Carbon
+    {
+        return match ($validated['sync_start_mode']) {
+            'all' => null,
+            'custom' => Carbon::createFromFormat('Y-m-d', (string) $validated['sync_start_date'])->startOfDay(),
+            default => today()->startOfDay(),
         };
     }
 

@@ -9,6 +9,7 @@ use App\Models\User;
 use App\Services\Exchanges\BitFlyerClient;
 use App\Services\Exchanges\BitFlyerExecutionSyncService;
 use Illuminate\Console\Command;
+use Illuminate\Support\Carbon;
 
 class CreateBitFlyerConnection extends Command
 {
@@ -18,6 +19,7 @@ class CreateBitFlyerConnection extends Command
         {--product=ALL_SPOT_JPY : bitFlyer product_code}
         {--key= : bitFlyer API Key}
         {--secret= : bitFlyer API Secret}
+        {--sync-start-date=today : today, all, or YYYY-MM-DD}
         {--skip-permission-check : 権限確認APIを呼ばずに保存する}';
 
     protected $description = 'bitFlyer の読み取り用APIキーを暗号化保存する';
@@ -75,6 +77,7 @@ class CreateBitFlyerConnection extends Command
                 'label' => 'bitFlyer '.$this->labelForProduct($productCode),
                 'api_key' => $key,
                 'api_secret' => $secret,
+                'sync_start_at' => $this->syncStartAt(),
                 'is_active' => true,
             ],
         );
@@ -89,5 +92,16 @@ class CreateBitFlyerConnection extends Command
         return $productCode === BitFlyerExecutionSyncService::ALL_SPOT_JPY
             ? '全JPY建てSpot'
             : $productCode;
+    }
+
+    private function syncStartAt(): ?Carbon
+    {
+        $value = (string) $this->option('sync-start-date');
+
+        if ($value === 'all') {
+            return null;
+        }
+
+        return ($value === 'today' ? today() : Carbon::createFromFormat('Y-m-d', $value))->startOfDay();
     }
 }

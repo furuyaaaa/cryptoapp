@@ -18,9 +18,21 @@ test('Coincheck sync imports JPY pair transactions and skips duplicates', functi
             'pagination' => ['limit' => 100, 'order' => 'desc'],
             'data' => [
                 [
+                    'id' => 37,
+                    'order_id' => 48,
+                    'created_at' => '2025-12-30T00:00:00.000Z',
+                    'funds' => ['btc' => '0.2', 'jpy' => '-1800000'],
+                    'pair' => 'btc_jpy',
+                    'rate' => '9000000.0',
+                    'fee_currency' => 'JPY',
+                    'fee' => '10',
+                    'liquidity' => 'T',
+                    'side' => 'buy',
+                ],
+                [
                     'id' => 38,
                     'order_id' => 49,
-                    'created_at' => '2015-11-18T07:02:21.000Z',
+                    'created_at' => '2026-01-02T00:00:00.000Z',
                     'funds' => ['btc' => '0.1', 'jpy' => '-4096.135'],
                     'pair' => 'btc_jpy',
                     'rate' => '40900.0',
@@ -31,7 +43,7 @@ test('Coincheck sync imports JPY pair transactions and skips duplicates', functi
                 ],
                 [
                     'id' => 39,
-                    'created_at' => '2015-11-18T07:02:21.000Z',
+                    'created_at' => '2026-01-02T00:00:00.000Z',
                     'funds' => ['btc' => '0.1', 'eth' => '-1.5'],
                     'pair' => 'btc_eth',
                     'rate' => '15.0',
@@ -54,6 +66,7 @@ test('Coincheck sync imports JPY pair transactions and skips duplicates', functi
         'api_key' => 'key',
         'api_secret' => 'secret',
         'product_code' => CoincheckExecutionSyncService::ALL_JPY_PAIRS,
+        'sync_start_at' => '2026-01-01 00:00:00',
         'is_active' => true,
     ]);
 
@@ -62,8 +75,8 @@ test('Coincheck sync imports JPY pair transactions and skips duplicates', functi
     $first = $service->sync($connection);
     $second = $service->sync($connection->refresh());
 
-    expect($first)->toMatchArray(['fetched' => 2, 'imported' => 1, 'skipped' => 1]);
-    expect($second)->toMatchArray(['fetched' => 2, 'imported' => 0, 'skipped' => 2]);
+    expect($first)->toMatchArray(['fetched' => 3, 'imported' => 1, 'skipped' => 2]);
+    expect($second)->toMatchArray(['fetched' => 3, 'imported' => 0, 'skipped' => 3]);
 
     $transaction = Transaction::first();
     expect(Transaction::count())->toBe(1)

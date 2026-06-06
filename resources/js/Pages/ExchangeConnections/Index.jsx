@@ -37,6 +37,12 @@ const dateLabel = (iso) => {
     });
 };
 
+const todayString = () => {
+    const date = new Date();
+    const offset = date.getTimezoneOffset() * 60000;
+    return new Date(date.getTime() - offset).toISOString().slice(0, 10);
+};
+
 function StatusBadge({ connection }) {
     if (connection.last_error_at) {
         return (
@@ -86,6 +92,9 @@ function ConnectionRow({ connection }) {
                     {connection.exchange.name} / {connection.product_code}
                 </div>
             </td>
+            <td className="whitespace-nowrap px-4 py-3 text-sm text-gray-600">
+                {connection.sync_start_at ?? '全期間'}
+            </td>
             <td className="whitespace-nowrap px-4 py-3 text-sm text-gray-700">
                 {connection.portfolio.name}
             </td>
@@ -123,6 +132,8 @@ function ConnectionForm({ portfolios }) {
         portfolio_id: portfolios[0]?.id ?? '',
         exchange_code: 'bitflyer',
         product_code: 'ALL_SPOT_JPY',
+        sync_start_mode: 'today',
+        sync_start_date: todayString(),
         api_key: '',
         api_secret: '',
     });
@@ -132,6 +143,14 @@ function ConnectionForm({ portfolios }) {
             ...values,
             exchange_code: exchangeCode,
             product_code: productOptions[exchangeCode][0].value,
+        }));
+    };
+
+    const setSyncStartMode = (mode) => {
+        setData((values) => ({
+            ...values,
+            sync_start_mode: mode,
+            sync_start_date: mode === 'today' ? todayString() : values.sync_start_date,
         }));
     };
 
@@ -197,6 +216,35 @@ function ConnectionForm({ portfolios }) {
                     </select>
                     <InputError message={errors.product_code} className="mt-2" />
                 </div>
+
+                <div>
+                    <InputLabel htmlFor="sync_start_mode" value="同期開始" />
+                    <select
+                        id="sync_start_mode"
+                        value={data.sync_start_mode}
+                        onChange={(e) => setSyncStartMode(e.target.value)}
+                        className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+                    >
+                        <option value="today">今日から</option>
+                        <option value="all">過去分も含める</option>
+                        <option value="custom">日付指定</option>
+                    </select>
+                    <InputError message={errors.sync_start_mode} className="mt-2" />
+                </div>
+
+                {data.sync_start_mode === 'custom' && (
+                    <div>
+                        <InputLabel htmlFor="sync_start_date" value="同期開始日" />
+                        <TextInput
+                            id="sync_start_date"
+                            type="date"
+                            value={data.sync_start_date}
+                            onChange={(e) => setData('sync_start_date', e.target.value)}
+                            className="mt-1 block w-full"
+                        />
+                        <InputError message={errors.sync_start_date} className="mt-2" />
+                    </div>
+                )}
 
                 <div>
                     <InputLabel htmlFor="api_key" value="API Key" />
@@ -292,6 +340,9 @@ export default function Index({ connections, portfolios }) {
                                         <tr>
                                             <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-500">
                                                 連携
+                                            </th>
+                                            <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-500">
+                                                同期開始
                                             </th>
                                             <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-500">
                                                 同期先

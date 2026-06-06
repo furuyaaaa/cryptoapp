@@ -4,11 +4,14 @@ namespace App\Services\Exchanges;
 
 use App\Models\ExchangeConnection;
 use App\Models\Transaction;
+use App\Services\Exchanges\Concerns\SkipsExecutionsBeforeSyncStart;
 use RuntimeException;
 use Throwable;
 
 class BitbankExecutionSyncService
 {
+    use SkipsExecutionsBeforeSyncStart;
+
     public const ALL_JPY_PAIRS = 'ALL_JPY_PAIRS';
 
     public function __construct(private readonly BitbankExecutionMapper $mapper) {}
@@ -55,7 +58,14 @@ class BitbankExecutionSyncService
                         continue;
                     }
 
-                    Transaction::create($this->mapper->map($connection, $trade, $pair));
+                    $mapped = $this->mapper->map($connection, $trade, $pair);
+                    if ($this->isBeforeSyncStart($connection, $mapped)) {
+                        $skipped++;
+
+                        continue;
+                    }
+
+                    Transaction::create($mapped);
                     $imported++;
                 }
             }

@@ -4,10 +4,13 @@ namespace App\Services\Exchanges;
 
 use App\Models\ExchangeConnection;
 use App\Models\Transaction;
+use App\Services\Exchanges\Concerns\SkipsExecutionsBeforeSyncStart;
 use Throwable;
 
 class CoincheckExecutionSyncService
 {
+    use SkipsExecutionsBeforeSyncStart;
+
     public const ALL_JPY_PAIRS = 'ALL_JPY_PAIRS';
 
     public const SUPPORTED_JPY_PAIRS = [
@@ -82,7 +85,14 @@ class CoincheckExecutionSyncService
                     continue;
                 }
 
-                Transaction::create($this->mapper->map($connection, $transaction));
+                $mapped = $this->mapper->map($connection, $transaction);
+                if ($this->isBeforeSyncStart($connection, $mapped)) {
+                    $skipped++;
+
+                    continue;
+                }
+
+                Transaction::create($mapped);
                 $imported++;
             }
 
