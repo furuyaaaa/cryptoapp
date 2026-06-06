@@ -55,4 +55,8 @@ return [
         'base_url' => env('ZAIF_BASE_URL', 'https://api.zaif.jp'),
     ],
 
+    'binance' => [
+        'base_url' => env('BINANCE_BASE_URL', 'https://api.binance.com'),
+    ],
+
 ];
