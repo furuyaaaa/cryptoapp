@@ -20,6 +20,10 @@ const productOptions = {
         { value: 'ALL_JPY_PAIRS', label: 'すべてのJPY建て取引所ペア' },
         { value: 'btc_jpy', label: 'btc_jpyのみ' },
     ],
+    gmo_coin: [
+        { value: 'ALL_SPOT_SYMBOLS', label: 'すべての現物銘柄' },
+        { value: 'BTC', label: 'BTCのみ' },
+    ],
 };
 
 const dateLabel = (iso) => {
@@ -153,6 +157,7 @@ function ConnectionForm({ portfolios }) {
                         <option value="bitflyer">bitFlyer</option>
                         <option value="bitbank">bitbank</option>
                         <option value="coincheck">Coincheck</option>
+                        <option value="gmo_coin">GMOコイン</option>
                     </select>
                     <InputError message={errors.exchange_code} className="mt-2" />
                 </div>

@@ -11,6 +11,8 @@ use App\Services\Exchanges\BitFlyerClient;
 use App\Services\Exchanges\BitFlyerExecutionSyncService;
 use App\Services\Exchanges\CoincheckClient;
 use App\Services\Exchanges\CoincheckExecutionSyncService;
+use App\Services\Exchanges\GmoCoinClient;
+use App\Services\Exchanges\GmoCoinExecutionSyncService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
@@ -93,6 +95,7 @@ class ExchangeConnectionController extends Controller
         BitFlyerExecutionSyncService $bitFlyerSync,
         BitbankExecutionSyncService $bitbankSync,
         CoincheckExecutionSyncService $coincheckSync,
+        GmoCoinExecutionSyncService $gmoCoinSync,
     ): RedirectResponse {
         abort_unless($connection->user_id === $request->user()->id, 403);
         $connection->loadMissing('exchange');
@@ -102,6 +105,7 @@ class ExchangeConnectionController extends Controller
                 'bitflyer' => $bitFlyerSync->sync($connection),
                 'bitbank' => $bitbankSync->sync($connection),
                 'coincheck' => $coincheckSync->sync($connection),
+                'gmo_coin' => $gmoCoinSync->sync($connection),
                 default => throw new \RuntimeException('Unsupported exchange: '.$connection->exchange->code),
             };
         } catch (Throwable $e) {
@@ -129,6 +133,7 @@ class ExchangeConnectionController extends Controller
             'bitflyer' => $this->assertReadOnlyBitFlyerKey($apiKey, $apiSecret),
             'bitbank' => $this->assertReadableBitbankKey($apiKey, $apiSecret),
             'coincheck' => $this->assertReadableCoincheckKey($apiKey, $apiSecret),
+            'gmo_coin' => $this->assertReadableGmoCoinKey($apiKey, $apiSecret),
             default => throw new \RuntimeException('Unsupported exchange: '.$exchangeCode),
         };
     }
@@ -163,12 +168,19 @@ class ExchangeConnectionController extends Controller
             ->balance();
     }
 
+    private function assertReadableGmoCoinKey(string $apiKey, string $apiSecret): void
+    {
+        (new GmoCoinClient($apiKey, $apiSecret, config('services.gmo_coin.base_url')))
+            ->assets();
+    }
+
     private function labelForConnection(string $exchangeCode, string $productCode): string
     {
         return match ($exchangeCode) {
             'bitflyer' => 'bitFlyer '.$this->labelForBitFlyerProduct($productCode),
             'bitbank' => 'bitbank '.$this->labelForBitbankPair($productCode),
             'coincheck' => 'Coincheck '.$this->labelForCoincheckPair($productCode),
+            'gmo_coin' => 'GMOコイン '.$this->labelForGmoCoinSymbol($productCode),
             default => $exchangeCode.' '.$productCode,
         };
     }
@@ -179,6 +191,7 @@ class ExchangeConnectionController extends Controller
             'bitflyer' => 'bitFlyer',
             'bitbank' => 'bitbank',
             'coincheck' => 'Coincheck',
+            'gmo_coin' => 'GMOコイン',
             default => $exchangeCode,
         };
     }
@@ -202,5 +215,12 @@ class ExchangeConnectionController extends Controller
         return $pair === CoincheckExecutionSyncService::ALL_JPY_PAIRS
             ? '全JPY建て取引所ペア'
             : $pair;
+    }
+
+    private function labelForGmoCoinSymbol(string $symbol): string
+    {
+        return $symbol === GmoCoinExecutionSyncService::ALL_SPOT_SYMBOLS
+            ? '全現物銘柄'
+            : $symbol;
     }
 }

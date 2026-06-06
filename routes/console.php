@@ -24,3 +24,7 @@ Schedule::command('bitbank:sync-executions')
 Schedule::command('coincheck:sync-executions')
     ->everyThirtyMinutes()
     ->withoutOverlapping();
+
+Schedule::command('gmo-coin:sync-executions')
+    ->everyThirtyMinutes()
+    ->withoutOverlapping();
