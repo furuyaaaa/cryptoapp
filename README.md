@@ -100,7 +100,7 @@ php artisan db:seed --class=DemoSeeder
 - 損益の自動計算
 - 取引所別の管理
 - bitFlyer 約定履歴の同期（読み取り専用 API キー）
-- bitbank / Coincheck / GMOコイン / Zaif の約定履歴同期
+- bitbank / Coincheck / GMOコイン / Zaif / Binance Japan の約定履歴同期
 
 ---
 
@@ -189,6 +189,17 @@ php artisan zaif:sync-executions
 ```
 
 APIキーには `info` 権限だけを付与し、売買・出金権限を付けないでください。かんたん売買など API で取得できない履歴は、取引履歴画面から手動で追加してください。詳しい運用手順は [docs/zaif-sync.md](docs/zaif-sync.md) を参照してください。
+
+## Binance Japan 連携
+
+Binance Japan の API キーを登録すると、Binance Spot API で取得できる JPY 建て現物約定履歴を取引履歴へ取り込めます。
+
+```bash
+php artisan binance:connect demo@example.com <portfolio_id>
+php artisan binance:sync-executions
+```
+
+APIキーには読み取りに必要な権限だけを付与し、売買・出金権限を付けないでください。`sync-start-date=all` の場合は API が返す直近履歴が対象です。完全な過去分バックフィルや Spot API で取得できない Convert・販売所・Earn などの履歴は、CSV インポートや手動登録で補完してください。詳しい運用手順は [docs/binance-sync.md](docs/binance-sync.md) を参照してください。
 
 ---
 

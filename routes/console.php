@@ -32,3 +32,7 @@ Schedule::command('gmo-coin:sync-executions')
 Schedule::command('zaif:sync-executions')
     ->everyThirtyMinutes()
     ->withoutOverlapping();
+
+Schedule::command('binance:sync-executions')
+    ->everyThirtyMinutes()
+    ->withoutOverlapping();

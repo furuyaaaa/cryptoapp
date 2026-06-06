@@ -5,6 +5,8 @@ namespace App\Http\Controllers;
 use App\Http\Requests\ExchangeConnectionRequest;
 use App\Models\Exchange;
 use App\Models\ExchangeConnection;
+use App\Services\Exchanges\BinanceClient;
+use App\Services\Exchanges\BinanceExecutionSyncService;
 use App\Services\Exchanges\BitbankClient;
 use App\Services\Exchanges\BitbankExecutionSyncService;
 use App\Services\Exchanges\BitFlyerClient;
@@ -102,6 +104,7 @@ class ExchangeConnectionController extends Controller
         CoincheckExecutionSyncService $coincheckSync,
         GmoCoinExecutionSyncService $gmoCoinSync,
         ZaifExecutionSyncService $zaifSync,
+        BinanceExecutionSyncService $binanceSync,
     ): RedirectResponse {
         abort_unless($connection->user_id === $request->user()->id, 403);
         $connection->loadMissing('exchange');
@@ -113,6 +116,7 @@ class ExchangeConnectionController extends Controller
                 'coincheck' => $coincheckSync->sync($connection),
                 'gmo_coin' => $gmoCoinSync->sync($connection),
                 'zaif' => $zaifSync->sync($connection),
+                'binance' => $binanceSync->sync($connection),
                 default => throw new \RuntimeException('Unsupported exchange: '.$connection->exchange->code),
             };
         } catch (Throwable $e) {
@@ -142,6 +146,7 @@ class ExchangeConnectionController extends Controller
             'coincheck' => $this->assertReadableCoincheckKey($apiKey, $apiSecret),
             'gmo_coin' => $this->assertReadableGmoCoinKey($apiKey, $apiSecret),
             'zaif' => $this->assertReadableZaifKey($apiKey, $apiSecret),
+            'binance' => $this->assertReadableBinanceKey($apiKey, $apiSecret),
             default => throw new \RuntimeException('Unsupported exchange: '.$exchangeCode),
         };
     }
@@ -204,6 +209,12 @@ class ExchangeConnectionController extends Controller
         }
     }
 
+    private function assertReadableBinanceKey(string $apiKey, string $apiSecret): void
+    {
+        (new BinanceClient($apiKey, $apiSecret, config('services.binance.base_url')))
+            ->account();
+    }
+
     private function labelForConnection(string $exchangeCode, string $productCode): string
     {
         return match ($exchangeCode) {
@@ -212,6 +223,7 @@ class ExchangeConnectionController extends Controller
             'coincheck' => 'Coincheck '.$this->labelForCoincheckPair($productCode),
             'gmo_coin' => 'GMOコイン '.$this->labelForGmoCoinSymbol($productCode),
             'zaif' => 'Zaif '.$this->labelForZaifPair($productCode),
+            'binance' => 'Binance Japan '.$this->labelForBinanceSymbol($productCode),
             default => $exchangeCode.' '.$productCode,
         };
     }
@@ -224,6 +236,7 @@ class ExchangeConnectionController extends Controller
             'coincheck' => 'Coincheck',
             'gmo_coin' => 'GMOコイン',
             'zaif' => 'Zaif',
+            'binance' => 'Binance Japan',
             default => $exchangeCode,
         };
     }
@@ -261,5 +274,12 @@ class ExchangeConnectionController extends Controller
         return $pair === ZaifExecutionSyncService::ALL_JPY_PAIRS
             ? '全JPY建て現物'
             : $pair;
+    }
+
+    private function labelForBinanceSymbol(string $symbol): string
+    {
+        return $symbol === BinanceExecutionSyncService::ALL_JPY_SYMBOLS
+            ? '全JPY建て現物'
+            : $symbol;
     }
 }
