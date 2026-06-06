@@ -20,3 +20,7 @@ Schedule::command('bitflyer:sync-executions')
 Schedule::command('bitbank:sync-executions')
     ->everyThirtyMinutes()
     ->withoutOverlapping();
+
+Schedule::command('coincheck:sync-executions')
+    ->everyThirtyMinutes()
+    ->withoutOverlapping();

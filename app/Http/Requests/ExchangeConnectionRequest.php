@@ -4,6 +4,7 @@ namespace App\Http\Requests;
 
 use App\Services\Exchanges\BitbankExecutionSyncService;
 use App\Services\Exchanges\BitFlyerExecutionSyncService;
+use App\Services\Exchanges\CoincheckExecutionSyncService;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\Validator;
@@ -23,10 +24,11 @@ class ExchangeConnectionRequest extends FormRequest
                 'integer',
                 Rule::exists('portfolios', 'id')->where('user_id', $this->user()->id),
             ],
-            'exchange_code' => ['required', 'string', Rule::in(['bitflyer', 'bitbank'])],
+            'exchange_code' => ['required', 'string', Rule::in(['bitflyer', 'bitbank', 'coincheck'])],
             'product_code' => ['required', 'string', Rule::in([
                 BitFlyerExecutionSyncService::ALL_SPOT_JPY,
                 BitbankExecutionSyncService::ALL_JPY_PAIRS,
+                CoincheckExecutionSyncService::ALL_JPY_PAIRS,
                 'BTC_JPY',
                 'btc_jpy',
             ])],
@@ -59,6 +61,10 @@ class ExchangeConnectionRequest extends FormRequest
                 ], true),
                 'bitbank' => in_array($productCode, [
                     BitbankExecutionSyncService::ALL_JPY_PAIRS,
+                    'btc_jpy',
+                ], true),
+                'coincheck' => in_array($productCode, [
+                    CoincheckExecutionSyncService::ALL_JPY_PAIRS,
                     'btc_jpy',
                 ], true),
                 default => false,

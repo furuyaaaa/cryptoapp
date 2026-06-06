@@ -43,4 +43,8 @@ return [
         'base_url' => env('BITBANK_BASE_URL', 'https://api.bitbank.cc'),
     ],
 
+    'coincheck' => [
+        'base_url' => env('COINCHECK_BASE_URL', 'https://coincheck.com'),
+    ],
+
 ];

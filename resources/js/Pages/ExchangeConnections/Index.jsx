@@ -16,6 +16,10 @@ const productOptions = {
         { value: 'ALL_JPY_PAIRS', label: 'すべてのJPY建て現物' },
         { value: 'btc_jpy', label: 'btc_jpyのみ' },
     ],
+    coincheck: [
+        { value: 'ALL_JPY_PAIRS', label: 'すべてのJPY建て取引所ペア' },
+        { value: 'btc_jpy', label: 'btc_jpyのみ' },
+    ],
 };
 
 const dateLabel = (iso) => {
@@ -148,6 +152,7 @@ function ConnectionForm({ portfolios }) {
                     >
                         <option value="bitflyer">bitFlyer</option>
                         <option value="bitbank">bitbank</option>
+                        <option value="coincheck">Coincheck</option>
                     </select>
                     <InputError message={errors.exchange_code} className="mt-2" />
                 </div>

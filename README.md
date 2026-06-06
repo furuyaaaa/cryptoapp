@@ -138,6 +138,17 @@ php artisan bitbank:sync-executions
 
 bitbank API では権限一覧を取得できないため、登録時は読み取りAPIの疎通だけを確認します。APIキーには売買・出金権限を付けないでください。詳しい運用手順は [docs/bitbank-sync.md](docs/bitbank-sync.md) を参照してください。
 
+## Coincheck 連携
+
+Coincheck の API キーを登録すると、Coincheck 取引所の JPY 建てペアの取引履歴を取引履歴へ取り込めます。
+
+```bash
+php artisan coincheck:connect demo@example.com <portfolio_id>
+php artisan coincheck:sync-executions
+```
+
+APIキーには読み取りに必要な権限だけを付与し、売買・送金権限を付けないでください。詳しい運用手順は [docs/coincheck-sync.md](docs/coincheck-sync.md) を参照してください。
+
 ---
 
 ## 使用技術

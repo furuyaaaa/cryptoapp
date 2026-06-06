@@ -9,6 +9,8 @@ use App\Services\Exchanges\BitbankClient;
 use App\Services\Exchanges\BitbankExecutionSyncService;
 use App\Services\Exchanges\BitFlyerClient;
 use App\Services\Exchanges\BitFlyerExecutionSyncService;
+use App\Services\Exchanges\CoincheckClient;
+use App\Services\Exchanges\CoincheckExecutionSyncService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
@@ -60,7 +62,7 @@ class ExchangeConnectionController extends Controller
 
         $exchange = Exchange::firstOrCreate(
             ['code' => $exchangeCode],
-            ['name' => $exchangeCode === 'bitflyer' ? 'bitFlyer' : 'bitbank', 'country' => 'JP'],
+            ['name' => $this->exchangeName($exchangeCode), 'country' => 'JP'],
         );
 
         ExchangeConnection::updateOrCreate(
@@ -90,6 +92,7 @@ class ExchangeConnectionController extends Controller
         ExchangeConnection $connection,
         BitFlyerExecutionSyncService $bitFlyerSync,
         BitbankExecutionSyncService $bitbankSync,
+        CoincheckExecutionSyncService $coincheckSync,
     ): RedirectResponse {
         abort_unless($connection->user_id === $request->user()->id, 403);
         $connection->loadMissing('exchange');
@@ -98,6 +101,7 @@ class ExchangeConnectionController extends Controller
             $result = match ($connection->exchange->code) {
                 'bitflyer' => $bitFlyerSync->sync($connection),
                 'bitbank' => $bitbankSync->sync($connection),
+                'coincheck' => $coincheckSync->sync($connection),
                 default => throw new \RuntimeException('Unsupported exchange: '.$connection->exchange->code),
             };
         } catch (Throwable $e) {
@@ -124,6 +128,7 @@ class ExchangeConnectionController extends Controller
         match ($exchangeCode) {
             'bitflyer' => $this->assertReadOnlyBitFlyerKey($apiKey, $apiSecret),
             'bitbank' => $this->assertReadableBitbankKey($apiKey, $apiSecret),
+            'coincheck' => $this->assertReadableCoincheckKey($apiKey, $apiSecret),
             default => throw new \RuntimeException('Unsupported exchange: '.$exchangeCode),
         };
     }
@@ -152,12 +157,29 @@ class ExchangeConnectionController extends Controller
             ->assets();
     }
 
+    private function assertReadableCoincheckKey(string $apiKey, string $apiSecret): void
+    {
+        (new CoincheckClient($apiKey, $apiSecret, config('services.coincheck.base_url')))
+            ->balance();
+    }
+
     private function labelForConnection(string $exchangeCode, string $productCode): string
     {
         return match ($exchangeCode) {
             'bitflyer' => 'bitFlyer '.$this->labelForBitFlyerProduct($productCode),
             'bitbank' => 'bitbank '.$this->labelForBitbankPair($productCode),
+            'coincheck' => 'Coincheck '.$this->labelForCoincheckPair($productCode),
             default => $exchangeCode.' '.$productCode,
+        };
+    }
+
+    private function exchangeName(string $exchangeCode): string
+    {
+        return match ($exchangeCode) {
+            'bitflyer' => 'bitFlyer',
+            'bitbank' => 'bitbank',
+            'coincheck' => 'Coincheck',
+            default => $exchangeCode,
         };
     }
 
@@ -172,6 +194,13 @@ class ExchangeConnectionController extends Controller
     {
         return $pair === BitbankExecutionSyncService::ALL_JPY_PAIRS
             ? '全JPY建て現物'
+            : $pair;
+    }
+
+    private function labelForCoincheckPair(string $pair): string
+    {
+        return $pair === CoincheckExecutionSyncService::ALL_JPY_PAIRS
+            ? '全JPY建て取引所ペア'
             : $pair;
     }
 }
