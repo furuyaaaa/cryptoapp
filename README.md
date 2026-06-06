@@ -192,6 +192,22 @@ APIキーには `info` 権限だけを付与し、売買・出金権限を付け
 
 ---
 
+## 今後の対応予定・未対応取引所
+
+取引所 API 連携は、公式 API で約定履歴を取得できること、読み取り専用または最小権限の API キーで運用できること、モックテストで同期処理を検証できることを前提に順次追加します。
+
+現時点の対応状況:
+
+- 対応済み: bitFlyer、bitbank、Coincheck、GMOコイン、Zaif
+- 未対応: Binance、Coinbase、Kraken、Bybit、OKX、Bitget、KuCoin、Gate.io
+- API仕様確認待ち: SBI VC Trade
+- API利用不可のため保留: BITPOINT
+- サービス終了のため対象外: DMM Bitcoin
+
+今後追加する取引所では、最初に API 仕様、取得できる履歴の範囲、レート制限、必要権限、テスト方法を確認します。API で取得できない過去履歴や販売所・簡単売買の履歴は、手動 CRUD または CSV インポートで補完する方針です。
+
+---
+
 ## 使用技術
 
 - Laravel
