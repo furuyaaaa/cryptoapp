@@ -51,4 +51,8 @@ return [
         'base_url' => env('GMO_COIN_BASE_URL', 'https://api.coin.z.com/private'),
     ],
 
+    'zaif' => [
+        'base_url' => env('ZAIF_BASE_URL', 'https://api.zaif.jp'),
+    ],
+
 ];

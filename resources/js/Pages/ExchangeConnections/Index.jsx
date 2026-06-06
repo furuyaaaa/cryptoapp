@@ -24,6 +24,10 @@ const productOptions = {
         { value: 'ALL_SPOT_SYMBOLS', label: 'すべての現物銘柄' },
         { value: 'BTC', label: 'BTCのみ' },
     ],
+    zaif: [
+        { value: 'ALL_JPY_PAIRS', label: 'すべてのJPY建て現物' },
+        { value: 'btc_jpy', label: 'btc_jpyのみ' },
+    ],
 };
 
 const dateLabel = (iso) => {
@@ -177,6 +181,7 @@ function ConnectionForm({ portfolios }) {
                         <option value="bitbank">bitbank</option>
                         <option value="coincheck">Coincheck</option>
                         <option value="gmo_coin">GMOコイン</option>
+                        <option value="zaif">Zaif</option>
                     </select>
                     <InputError message={errors.exchange_code} className="mt-2" />
                 </div>

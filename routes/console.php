@@ -28,3 +28,7 @@ Schedule::command('coincheck:sync-executions')
 Schedule::command('gmo-coin:sync-executions')
     ->everyThirtyMinutes()
     ->withoutOverlapping();
+
+Schedule::command('zaif:sync-executions')
+    ->everyThirtyMinutes()
+    ->withoutOverlapping();
