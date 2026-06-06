@@ -7,6 +7,7 @@ use App\Models\ExchangeConnection;
 use App\Models\Portfolio;
 use App\Models\User;
 use App\Services\Exchanges\BitFlyerClient;
+use App\Services\Exchanges\BitFlyerExecutionSyncService;
 use Illuminate\Console\Command;
 
 class CreateBitFlyerConnection extends Command
@@ -14,7 +15,7 @@ class CreateBitFlyerConnection extends Command
     protected $signature = 'bitflyer:connect
         {email : 接続を作成するユーザーのメールアドレス}
         {portfolio : 同期先ポートフォリオID}
-        {--product=BTC_JPY : bitFlyer product_code}
+        {--product=ALL_SPOT_JPY : bitFlyer product_code}
         {--key= : bitFlyer API Key}
         {--secret= : bitFlyer API Secret}
         {--skip-permission-check : 権限確認APIを呼ばずに保存する}';
@@ -34,6 +35,13 @@ class CreateBitFlyerConnection extends Command
 
         $key = (string) ($this->option('key') ?: $this->secret('bitFlyer API Key'));
         $secret = (string) ($this->option('secret') ?: $this->secret('bitFlyer API Secret'));
+        $productCode = (string) $this->option('product');
+
+        if ($productCode !== BitFlyerExecutionSyncService::ALL_SPOT_JPY && ! str_ends_with($productCode, '_JPY')) {
+            $this->error('Only ALL_SPOT_JPY or JPY spot product codes are supported.');
+
+            return self::FAILURE;
+        }
 
         if (! $this->option('skip-permission-check')) {
             $permissions = (new BitFlyerClient($key, $secret, config('services.bitflyer.base_url')))
@@ -61,10 +69,10 @@ class CreateBitFlyerConnection extends Command
                 'user_id' => $user->id,
                 'exchange_id' => $exchange->id,
                 'portfolio_id' => $portfolio->id,
-                'product_code' => (string) $this->option('product'),
+                'product_code' => $productCode,
             ],
             [
-                'label' => 'bitFlyer '.(string) $this->option('product'),
+                'label' => 'bitFlyer '.$this->labelForProduct($productCode),
                 'api_key' => $key,
                 'api_secret' => $secret,
                 'is_active' => true,
@@ -74,5 +82,12 @@ class CreateBitFlyerConnection extends Command
         $this->info('bitFlyer connection saved.');
 
         return self::SUCCESS;
+    }
+
+    private function labelForProduct(string $productCode): string
+    {
+        return $productCode === BitFlyerExecutionSyncService::ALL_SPOT_JPY
+            ? '全JPY建てSpot'
+            : $productCode;
     }
 }

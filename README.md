@@ -105,7 +105,7 @@ php artisan db:seed --class=DemoSeeder
 
 ## bitFlyer 連携
 
-bitFlyer の読み取り専用 API キーを登録すると、`BTC_JPY` の約定履歴を取引履歴へ取り込めます。
+bitFlyer の読み取り専用 API キーを登録すると、bitFlyer の Market List API で取得できる JPY 建て Spot 商品の約定履歴を取引履歴へ取り込めます。
 
 1. bitFlyer 側で読み取り専用 API キーを作成する
 2. ログイン後、上部ナビの「連携」を開く
@@ -119,7 +119,7 @@ php artisan bitflyer:connect demo@example.com <portfolio_id>
 php artisan bitflyer:sync-executions
 ```
 
-発注、取消、出金系の権限が付いた API キーは登録時に拒否されます。詳しい運用手順は [docs/bitflyer-sync.md](docs/bitflyer-sync.md) を参照してください。
+発注、取消、出金系の権限が付いた API キーは登録時に拒否されます。BTC 建て商品は JPY 換算が別途必要なため対象外です。詳しい運用手順は [docs/bitflyer-sync.md](docs/bitflyer-sync.md) を参照してください。
 
 定期同期を使う場合はスケジューラを起動してください。
 

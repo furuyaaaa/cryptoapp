@@ -102,7 +102,7 @@ function ConnectionRow({ connection }) {
 function ConnectionForm({ portfolios }) {
     const { data, setData, post, processing, errors, reset } = useForm({
         portfolio_id: portfolios[0]?.id ?? '',
-        product_code: 'BTC_JPY',
+        product_code: 'ALL_SPOT_JPY',
         api_key: '',
         api_secret: '',
     });
@@ -143,7 +143,8 @@ function ConnectionForm({ portfolios }) {
                         onChange={(e) => setData('product_code', e.target.value)}
                         className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
                     >
-                        <option value="BTC_JPY">BTC_JPY</option>
+                        <option value="ALL_SPOT_JPY">すべてのJPY建てSpot</option>
+                        <option value="BTC_JPY">BTC_JPYのみ</option>
                     </select>
                     <InputError message={errors.product_code} className="mt-2" />
                 </div>

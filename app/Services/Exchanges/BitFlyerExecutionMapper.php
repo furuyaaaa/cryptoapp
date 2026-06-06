@@ -14,14 +14,14 @@ class BitFlyerExecutionMapper
      * @param  array<string, mixed>  $execution
      * @return array<string, mixed>
      */
-    public function map(ExchangeConnection $connection, array $execution): array
+    public function map(ExchangeConnection $connection, array $execution, ?string $productCode = null): array
     {
-        $symbol = $this->symbolFromProductCode($connection->product_code);
-        $asset = Asset::firstWhere('symbol', $symbol);
-
-        if (! $asset) {
-            throw new InvalidArgumentException("Asset {$symbol} is not registered.");
-        }
+        $productCode ??= $connection->product_code;
+        $symbol = $this->symbolFromProductCode($productCode);
+        $asset = Asset::firstOrCreate(
+            ['symbol' => $symbol],
+            ['name' => $symbol],
+        );
 
         $side = strtoupper((string) ($execution['side'] ?? ''));
         $type = match ($side) {
@@ -44,7 +44,7 @@ class BitFlyerExecutionMapper
             'executed_at' => Carbon::parse((string) $execution['exec_date']),
             'note' => 'Imported from bitFlyer',
             'external_source' => 'bitflyer:getexecutions',
-            'external_id' => (string) $execution['id'],
+            'external_id' => $productCode.':'.(string) $execution['id'],
             'synced_at' => now(),
         ];
     }

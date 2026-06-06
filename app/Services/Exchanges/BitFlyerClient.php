@@ -25,6 +25,14 @@ class BitFlyerClient
     /**
      * @return list<array<string, mixed>>
      */
+    public function markets(): array
+    {
+        return $this->publicGet('/v1/markets');
+    }
+
+    /**
+     * @return list<array<string, mixed>>
+     */
     public function executions(string $productCode = 'BTC_JPY', int $count = 100, ?int $before = null): array
     {
         $query = [
@@ -55,6 +63,30 @@ class BitFlyerClient
         $attempts++;
 
         $response = $this->request('GET', $requestPath, '')
+            ->get($this->baseUrl.$path, $query);
+
+        if (in_array($response->status(), [429, 500, 502, 503, 504], true) && $attempts < 4) {
+            $retryAfter = (int) $response->header('Retry-After', '0');
+            Sleep::for($retryAfter > 0 ? $retryAfter : $attempts)->seconds();
+
+            goto beginning;
+        }
+
+        return $response->throw()->json();
+    }
+
+    /**
+     * @param  array<string, scalar>  $query
+     * @return array<mixed>
+     */
+    private function publicGet(string $path, array $query = []): array
+    {
+        $attempts = 0;
+        beginning:
+        $attempts++;
+
+        $response = Http::timeout(10)
+            ->acceptJson()
             ->get($this->baseUrl.$path, $query);
 
         if (in_array($response->status(), [429, 500, 502, 503, 504], true) && $attempts < 4) {

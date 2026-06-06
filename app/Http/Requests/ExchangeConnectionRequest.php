@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests;
 
+use App\Services\Exchanges\BitFlyerExecutionSyncService;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
@@ -20,7 +21,10 @@ class ExchangeConnectionRequest extends FormRequest
                 'integer',
                 Rule::exists('portfolios', 'id')->where('user_id', $this->user()->id),
             ],
-            'product_code' => ['required', 'string', Rule::in(['BTC_JPY'])],
+            'product_code' => ['required', 'string', Rule::in([
+                BitFlyerExecutionSyncService::ALL_SPOT_JPY,
+                'BTC_JPY',
+            ])],
             'api_key' => ['required', 'string', 'max:255'],
             'api_secret' => ['required', 'string', 'max:255'],
         ];

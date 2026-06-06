@@ -68,7 +68,7 @@ class ExchangeConnectionController extends Controller
                 'product_code' => $validated['product_code'],
             ],
             [
-                'label' => 'bitFlyer '.$validated['product_code'],
+                'label' => 'bitFlyer '.$this->labelForProduct($validated['product_code']),
                 'api_key' => $validated['api_key'],
                 'api_secret' => $validated['api_secret'],
                 'is_active' => true,
@@ -123,5 +123,12 @@ class ExchangeConnectionController extends Controller
         if (! in_array('/v1/me/getexecutions', $permissions, true)) {
             throw new \RuntimeException('/v1/me/getexecutions 権限が必要です。');
         }
+    }
+
+    private function labelForProduct(string $productCode): string
+    {
+        return $productCode === BitFlyerExecutionSyncService::ALL_SPOT_JPY
+            ? '全JPY建てSpot'
+            : $productCode;
     }
 }
