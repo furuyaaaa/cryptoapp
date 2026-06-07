@@ -149,8 +149,14 @@ final class TransactionCsvImportService
 
         $isBinanceJapanTradeExport = $this->isBinanceJapanTradeExport($headers);
         $isBitFlyerTradeExport = $this->isBitFlyerTradeExport($headers);
+        $isBitbankSpotTradeExport = $this->isBitbankSpotTradeExport($headers);
         $headers = array_map(
-            fn ($header) => $this->normalizeHeader((string) $header, $isBinanceJapanTradeExport, $isBitFlyerTradeExport),
+            fn ($header) => $this->normalizeHeader(
+                (string) $header,
+                $isBinanceJapanTradeExport,
+                $isBitFlyerTradeExport,
+                $isBitbankSpotTradeExport,
+            ),
             $headers,
         );
         $rows = [];
@@ -181,6 +187,9 @@ final class TransactionCsvImportService
             }
             if ($isBitFlyerTradeExport) {
                 $row = $this->normalizeBitFlyerTradeRow($row);
+            }
+            if ($isBitbankSpotTradeExport) {
+                $row = $this->normalizeBitbankSpotTradeRow($row);
             }
 
             $rows[] = $row;
@@ -330,6 +339,7 @@ final class TransactionCsvImportService
         string $header,
         bool $isBinanceJapanTradeExport = false,
         bool $isBitFlyerTradeExport = false,
+        bool $isBitbankSpotTradeExport = false,
     ): string {
         $key = $this->normalizedHeaderKey($header);
 
@@ -373,6 +383,30 @@ final class TransactionCsvImportService
                 '取引ID' => 'external_id',
                 '注文id' => 'external_id',
                 '注文ID' => 'external_id',
+            ][$key] ?? str_replace([' ', '-'], '_', $key);
+        }
+
+        if ($isBitbankSpotTradeExport) {
+            return [
+                '注文id' => 'order_id',
+                '注文ID' => 'order_id',
+                '取引id' => 'trade_id',
+                '取引ID' => 'trade_id',
+                '通貨ペア' => 'market_pair',
+                'ペア' => 'market_pair',
+                '現物/信用' => 'market_type',
+                'タイプ' => 'order_type',
+                '売/買' => 'type',
+                '売買' => 'type',
+                '数量' => 'amount',
+                '価格' => 'price_jpy',
+                '実現損益' => 'realized_profit',
+                '発生手数料' => 'fee_raw',
+                '実現手数料' => 'realized_fee',
+                '実現利息' => 'realized_interest',
+                'm/t' => 'maker_taker',
+                '取引日時' => 'executed_at',
+                '日時' => 'executed_at',
             ][$key] ?? str_replace([' ', '-'], '_', $key);
         }
 
@@ -427,6 +461,16 @@ final class TransactionCsvImportService
     }
 
     /**
+     * @param  list<mixed>  $headers
+     */
+    private function isBitbankSpotTradeExport(array $headers): bool
+    {
+        $keys = array_map(fn ($header): string => $this->normalizedHeaderKey((string) $header), $headers);
+
+        return count(array_intersect(['注文id', '取引id', '通貨ペア', '売/買', '数量', '価格', '発生手数料', '取引日時'], $keys)) >= 6;
+    }
+
+    /**
      * @param  array<string, string>  $row
      * @return array<string, string>
      */
@@ -460,6 +504,22 @@ final class TransactionCsvImportService
         return $row;
     }
 
+    /**
+     * @param  array<string, string>  $row
+     * @return array<string, string>
+     */
+    private function normalizeBitbankSpotTradeRow(array $row): array
+    {
+        $row['exchange'] = $row['exchange'] ?? 'bitbank';
+        $row['external_id'] = $row['trade_id'] ?? $row['order_id'] ?? '';
+
+        if (($row['fee_jpy'] ?? '') === '' && ($row['fee_raw'] ?? '') !== '') {
+            $row['fee_jpy'] = $this->absoluteDecimalString($row['fee_raw']);
+        }
+
+        return $row;
+    }
+
     private function symbolFromMarketPair(string $value): string
     {
         if ($value === '') {
@@ -482,6 +542,13 @@ final class TransactionCsvImportService
         $parts = preg_split('/\s+/', trim($value));
 
         return Str::upper((string) ($parts[1] ?? 'JPY'));
+    }
+
+    private function absoluteDecimalString(string $value): string
+    {
+        $decimal = $this->decimal($value, true);
+
+        return $decimal === null ? '' : (string) abs($decimal);
     }
 
     /**
