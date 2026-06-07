@@ -362,6 +362,58 @@ test('Binance Japanの現物取引CSVを取り込める', function () {
     ]);
 });
 
+test('bitFlyerの取引履歴CSVを取り込める', function () {
+    $user = User::factory()->create();
+    $portfolio = Portfolio::factory()->for($user)->create(['name' => 'Main']);
+    $exchange = Exchange::factory()->create(['name' => 'bitFlyer', 'code' => 'bitflyer']);
+
+    $csv = implode("\n", [
+        '取引日時,通貨,取引種別,取引価格,通貨1,通貨1数量,手数料,通貨1の対円レート,通貨2,通貨2数量,通貨2の対円レート,取引ID',
+        '2026-06-01 10:20:00,BTC/JPY,買,10000000,BTC,0.01,0.00001 BTC,10000000,JPY,100000,1,bf-1',
+    ]);
+
+    $this->actingAs($user)
+        ->from(route('transactions.import.create'))
+        ->post(route('transactions.import.store'), [
+            'action' => 'preview',
+            'portfolio_id' => $portfolio->id,
+            'csv_file' => UploadedFile::fake()->createWithContent('bitflyer-trades.csv', $csv),
+        ])
+        ->assertRedirect(route('transactions.import.create'))
+        ->assertSessionHas('import_preview');
+
+    $preview = session('import_preview');
+    expect($preview['importable'])->toBe(1)
+        ->and($preview['rows'][0]['symbol'])->toBe('BTC')
+        ->and($preview['rows'][0]['type'])->toBe(Transaction::TYPE_BUY)
+        ->and($preview['rows'][0]['amount'])->toBe(0.01)
+        ->and($preview['rows'][0]['price_jpy'])->toBe(10000000.0)
+        ->and($preview['rows'][0]['exchange'])->toBe('bitFlyer');
+
+    $this->actingAs($user)
+        ->post(route('transactions.import.store'), [
+            'action' => 'import',
+            'import_token' => $preview['token'],
+            'portfolio_id' => $preview['portfolio_id'],
+        ])
+        ->assertRedirect(route('transactions.index'))
+        ->assertSessionHas('success');
+
+    $asset = Asset::where('symbol', 'BTC')->first();
+
+    $this->assertDatabaseHas('transactions', [
+        'portfolio_id' => $portfolio->id,
+        'asset_id' => $asset->id,
+        'exchange_id' => $exchange->id,
+        'type' => Transaction::TYPE_BUY,
+        'amount' => 0.01,
+        'price_jpy' => 10000000,
+        'fee_jpy' => 0,
+        'external_id' => 'bf-1',
+        'note' => '手数料: 0.00001 BTC',
+    ]);
+});
+
 test('CSVインポートは重複external_idをスキップする', function () {
     $user = User::factory()->create();
     Portfolio::factory()->for($user)->create(['name' => 'Main']);
