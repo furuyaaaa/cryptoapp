@@ -148,8 +148,9 @@ final class TransactionCsvImportService
         }
 
         $isBinanceJapanTradeExport = $this->isBinanceJapanTradeExport($headers);
+        $isBitFlyerTradeExport = $this->isBitFlyerTradeExport($headers);
         $headers = array_map(
-            fn ($header) => $this->normalizeHeader((string) $header, $isBinanceJapanTradeExport),
+            fn ($header) => $this->normalizeHeader((string) $header, $isBinanceJapanTradeExport, $isBitFlyerTradeExport),
             $headers,
         );
         $rows = [];
@@ -177,6 +178,9 @@ final class TransactionCsvImportService
             $row = array_combine($headers, array_map(fn ($value) => trim((string) $value), $values));
             if ($isBinanceJapanTradeExport) {
                 $row = $this->normalizeBinanceJapanTradeRow($row);
+            }
+            if ($isBitFlyerTradeExport) {
+                $row = $this->normalizeBitFlyerTradeRow($row);
             }
 
             $rows[] = $row;
@@ -229,7 +233,7 @@ final class TransactionCsvImportService
             return ['error' => "{$line}行目: ポートフォリオが見つかりません。CSVにポートフォリオ列を入れるか、既定のポートフォリオを選択してください。"];
         }
 
-        $symbol = Str::upper($this->value($row, ['symbol', 'asset_symbol']));
+        $symbol = Str::upper($this->value($row, ['symbol', 'asset_symbol', 'asset_currency']));
         if ($symbol === '') {
             $symbol = $this->symbolFromMarketPair($this->value($row, ['market_pair']));
         }
@@ -322,10 +326,12 @@ final class TransactionCsvImportService
         ], 'will_create_asset' => $willCreateAsset];
     }
 
-    private function normalizeHeader(string $header, bool $isBinanceJapanTradeExport = false): string
-    {
-        $header = preg_replace('/^\xEF\xBB\xBF/', '', trim($header));
-        $key = Str::lower($header);
+    private function normalizeHeader(
+        string $header,
+        bool $isBinanceJapanTradeExport = false,
+        bool $isBitFlyerTradeExport = false,
+    ): string {
+        $key = $this->normalizedHeaderKey($header);
 
         if ($isBinanceJapanTradeExport) {
             return [
@@ -341,6 +347,32 @@ final class TransactionCsvImportService
                 'amount' => 'quote_amount_jpy',
                 'fee' => 'fee_raw',
                 'role' => 'role',
+            ][$key] ?? str_replace([' ', '-'], '_', $key);
+        }
+
+        if ($isBitFlyerTradeExport) {
+            return [
+                '取引日時' => 'executed_at',
+                '日時' => 'executed_at',
+                '通貨' => 'market_pair',
+                '通貨ペア' => 'market_pair',
+                'マーケット' => 'market_pair',
+                '取引種別' => 'type',
+                '売買' => 'type',
+                '取引価格' => 'price_jpy',
+                '価格' => 'price_jpy',
+                '通貨1' => 'asset_currency',
+                '通貨1数量' => 'amount',
+                '数量' => 'amount',
+                '手数料' => 'fee_raw',
+                '通貨1の対円レート' => 'asset_rate_jpy',
+                '通貨2' => 'quote_currency',
+                '通貨2数量' => 'quote_amount_jpy',
+                '通貨2の対円レート' => 'quote_rate_jpy',
+                '取引id' => 'external_id',
+                '取引ID' => 'external_id',
+                '注文id' => 'external_id',
+                '注文ID' => 'external_id',
             ][$key] ?? str_replace([' ', '-'], '_', $key);
         }
 
@@ -364,6 +396,13 @@ final class TransactionCsvImportService
         ][$key] ?? str_replace([' ', '-'], '_', $key);
     }
 
+    private function normalizedHeaderKey(string $header): string
+    {
+        $header = preg_replace('/^\xEF\xBB\xBF/', '', trim($header));
+
+        return Str::lower((string) $header);
+    }
+
     /**
      * @param  list<mixed>  $headers
      */
@@ -378,12 +417,41 @@ final class TransactionCsvImportService
     }
 
     /**
+     * @param  list<mixed>  $headers
+     */
+    private function isBitFlyerTradeExport(array $headers): bool
+    {
+        $keys = array_map(fn ($header): string => $this->normalizedHeaderKey((string) $header), $headers);
+
+        return count(array_intersect(['取引日時', '通貨', '取引種別', '取引価格', '通貨1', '通貨1数量', '手数料'], $keys)) >= 5;
+    }
+
+    /**
      * @param  array<string, string>  $row
      * @return array<string, string>
      */
     private function normalizeBinanceJapanTradeRow(array $row): array
     {
         $row['exchange'] = $row['exchange'] ?? 'Binance Japan';
+
+        if (($row['fee_jpy'] ?? '') === '' && ($row['fee_raw'] ?? '') !== '' && $this->feeUnit($row['fee_raw']) === 'JPY') {
+            $row['fee_jpy'] = $row['fee_raw'];
+        }
+
+        return $row;
+    }
+
+    /**
+     * @param  array<string, string>  $row
+     * @return array<string, string>
+     */
+    private function normalizeBitFlyerTradeRow(array $row): array
+    {
+        $row['exchange'] = $row['exchange'] ?? 'bitFlyer';
+
+        if (($row['asset_currency'] ?? '') === '' && ($row['market_pair'] ?? '') !== '') {
+            $row['asset_currency'] = $this->symbolFromMarketPair($row['market_pair']);
+        }
 
         if (($row['fee_jpy'] ?? '') === '' && ($row['fee_raw'] ?? '') !== '' && $this->feeUnit($row['fee_raw']) === 'JPY') {
             $row['fee_jpy'] = $row['fee_raw'];
@@ -461,9 +529,11 @@ final class TransactionCsvImportService
 
         return [
             'buy' => Transaction::TYPE_BUY,
+            '買' => Transaction::TYPE_BUY,
             '買い' => Transaction::TYPE_BUY,
             '購入' => Transaction::TYPE_BUY,
             'sell' => Transaction::TYPE_SELL,
+            '売' => Transaction::TYPE_SELL,
             '売り' => Transaction::TYPE_SELL,
             '売却' => Transaction::TYPE_SELL,
             'transfer_in' => Transaction::TYPE_TRANSFER_IN,
