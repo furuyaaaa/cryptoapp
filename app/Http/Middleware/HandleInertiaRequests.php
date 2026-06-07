@@ -42,6 +42,7 @@ class HandleInertiaRequests extends Middleware
             'flash' => [
                 'success' => fn () => $request->session()->get('success'),
                 'error' => fn () => $request->session()->get('error'),
+                'import_errors' => fn () => $request->session()->get('import_errors', []),
                 // 2FA 有効化直後に 1 度だけ表示するための復旧コード
                 'recoveryCodes' => fn () => $request->session()->get('recoveryCodes'),
             ],

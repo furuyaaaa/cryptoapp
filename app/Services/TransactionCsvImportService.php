@@ -1,0 +1,367 @@
+<?php
+
+namespace App\Services;
+
+use App\Models\Asset;
+use App\Models\Exchange;
+use App\Models\Portfolio;
+use App\Models\Transaction;
+use App\Models\User;
+use Carbon\Carbon;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
+use RuntimeException;
+use Throwable;
+
+final class TransactionCsvImportService
+{
+    private const MAX_ROWS = 1000;
+
+    /**
+     * @return array{imported: int, skipped: int, errors: list<string>}
+     */
+    public function import(User $user, string $path, ?int $defaultPortfolioId = null): array
+    {
+        [$rows, $errors] = $this->readRows($path);
+        if ($errors !== []) {
+            return ['imported' => 0, 'skipped' => 0, 'errors' => $errors];
+        }
+
+        DB::beginTransaction();
+
+        try {
+            $context = $this->context($user);
+            $prepared = [];
+
+            foreach ($rows as $index => $row) {
+                $line = $index + 2;
+                $mapped = $this->prepareRow($row, $line, $context, $defaultPortfolioId);
+
+                if (isset($mapped['error'])) {
+                    $errors[] = $mapped['error'];
+
+                    continue;
+                }
+
+                $prepared[] = $mapped['data'];
+            }
+
+            if ($errors !== []) {
+                DB::rollBack();
+
+                return ['imported' => 0, 'skipped' => 0, 'errors' => $errors];
+            }
+
+            $imported = 0;
+            $skipped = 0;
+            foreach ($prepared as $data) {
+                $exists = Transaction::query()
+                    ->where('external_source', $data['external_source'])
+                    ->where('external_id', $data['external_id'])
+                    ->exists();
+
+                if ($exists) {
+                    $skipped++;
+
+                    continue;
+                }
+
+                Transaction::create($data);
+                $imported++;
+            }
+
+            DB::commit();
+        } catch (Throwable $exception) {
+            DB::rollBack();
+
+            throw $exception;
+        }
+
+        return ['imported' => $imported, 'skipped' => $skipped, 'errors' => []];
+    }
+
+    /**
+     * @return array{0: list<array<string, string>>, 1: list<string>}
+     */
+    private function readRows(string $path): array
+    {
+        $handle = fopen($path, 'r');
+        if ($handle === false) {
+            throw new RuntimeException('CSVファイルを開けませんでした。');
+        }
+
+        $headers = fgetcsv($handle);
+        if ($headers === false || $headers === [null]) {
+            fclose($handle);
+
+            return [[], ['CSVヘッダー行が見つかりません。']];
+        }
+
+        $headers = array_map(fn ($header) => $this->normalizeHeader((string) $header), $headers);
+        $rows = [];
+        $errors = [];
+        $line = 1;
+
+        while (($values = fgetcsv($handle)) !== false) {
+            $line++;
+
+            if ($this->isBlankRow($values)) {
+                continue;
+            }
+
+            if (count($rows) >= self::MAX_ROWS) {
+                $errors[] = self::MAX_ROWS.'件を超えるCSVは分割して取り込んでください。';
+                break;
+            }
+
+            if (count($values) !== count($headers)) {
+                $errors[] = "{$line}行目: ヘッダー数と列数が一致しません。";
+
+                continue;
+            }
+
+            $rows[] = array_combine($headers, array_map(fn ($value) => trim((string) $value), $values));
+        }
+
+        fclose($handle);
+
+        if ($rows === [] && $errors === []) {
+            $errors[] = '取り込める行がありません。';
+        }
+
+        return [$rows, $errors];
+    }
+
+    /**
+     * @return array{portfolios: array<string, Portfolio>, assets: array<string, Asset>, exchanges: array<string, Exchange>}
+     */
+    private function context(User $user): array
+    {
+        $portfolios = [];
+        foreach ($user->portfolios()->get(['id', 'name', 'user_id']) as $portfolio) {
+            $portfolios[(string) $portfolio->id] = $portfolio;
+            $portfolios[Str::lower($portfolio->name)] = $portfolio;
+        }
+
+        $assets = [];
+        foreach (Asset::query()->get(['id', 'symbol', 'name']) as $asset) {
+            $assets[Str::upper($asset->symbol)] = $asset;
+        }
+
+        $exchanges = [];
+        foreach (Exchange::query()->get(['id', 'name', 'code']) as $exchange) {
+            $exchanges[Str::lower($exchange->name)] = $exchange;
+            $exchanges[Str::lower($exchange->code)] = $exchange;
+        }
+
+        return compact('portfolios', 'assets', 'exchanges');
+    }
+
+    /**
+     * @param  array{portfolios: array<string, Portfolio>, assets: array<string, Asset>, exchanges: array<string, Exchange>}  $context
+     * @param  array<string, string>  $row
+     * @return array{data: array<string, mixed>}|array{error: string}
+     */
+    private function prepareRow(array $row, int $line, array &$context, ?int $defaultPortfolioId): array
+    {
+        $portfolioValue = $this->value($row, ['portfolio_id', 'portfolio']);
+        $portfolio = $this->portfolio($context, $portfolioValue, $defaultPortfolioId);
+        if (! $portfolio) {
+            return ['error' => "{$line}行目: ポートフォリオが見つかりません。CSVにポートフォリオ列を入れるか、既定のポートフォリオを選択してください。"];
+        }
+
+        $symbol = Str::upper($this->value($row, ['symbol', 'asset_symbol']));
+        if ($symbol === '') {
+            return ['error' => "{$line}行目: 銘柄シンボルが未入力です。"];
+        }
+
+        $asset = $context['assets'][$symbol] ?? null;
+        if (! $asset) {
+            $asset = Asset::create([
+                'symbol' => $symbol,
+                'name' => $this->value($row, ['asset_name']) ?: $symbol,
+                'coingecko_id' => null,
+                'icon_url' => null,
+            ]);
+            $context['assets'][$symbol] = $asset;
+        }
+
+        $type = $this->type($this->value($row, ['type', 'type_code']));
+        if (! $type) {
+            return ['error' => "{$line}行目: 種別は buy / sell / transfer_in / transfer_out のいずれかを指定してください。"];
+        }
+
+        $amount = $this->decimal($this->value($row, ['amount']));
+        $price = $this->decimal($this->value($row, ['price_jpy', 'unit_price_jpy']));
+        $fee = $this->decimal($this->value($row, ['fee_jpy']), true);
+        if ($amount === null || $amount <= 0) {
+            return ['error' => "{$line}行目: 数量は0より大きい数値を指定してください。"];
+        }
+        if ($price === null || $price < 0) {
+            return ['error' => "{$line}行目: 単価(JPY)は0以上の数値を指定してください。"];
+        }
+        if ($fee === null || $fee < 0) {
+            return ['error' => "{$line}行目: 手数料(JPY)は0以上の数値を指定してください。"];
+        }
+
+        $executedAt = $this->dateTime($this->value($row, ['executed_at']));
+        if (! $executedAt) {
+            return ['error' => "{$line}行目: 取引日時を日付として解釈できません。"];
+        }
+        if ($executedAt->isFuture()) {
+            return ['error' => "{$line}行目: 取引日時は現在以前を指定してください。"];
+        }
+
+        $exchange = $this->exchange($context, $this->value($row, ['exchange_id', 'exchange']));
+        $note = $this->value($row, ['note']);
+        $externalId = $this->value($row, ['external_id'])
+            ?: hash('sha256', implode('|', [
+                $portfolio->id,
+                $asset->id,
+                $exchange?->id ?? '',
+                $type,
+                number_format($amount, 8, '.', ''),
+                number_format($price, 8, '.', ''),
+                number_format($fee, 8, '.', ''),
+                $executedAt->toDateTimeString(),
+                $note,
+            ]));
+
+        return ['data' => [
+            'portfolio_id' => $portfolio->id,
+            'asset_id' => $asset->id,
+            'exchange_id' => $exchange?->id,
+            'type' => $type,
+            'amount' => $amount,
+            'price_jpy' => $price,
+            'fee_jpy' => $fee,
+            'executed_at' => $executedAt,
+            'note' => $note !== '' ? $note : null,
+            'external_source' => 'csv:manual',
+            'external_id' => $externalId,
+            'synced_at' => now(),
+        ]];
+    }
+
+    private function normalizeHeader(string $header): string
+    {
+        $header = preg_replace('/^\xEF\xBB\xBF/', '', trim($header));
+        $key = Str::lower($header);
+
+        return [
+            '取引日時' => 'executed_at',
+            '日時' => 'executed_at',
+            '種別' => 'type',
+            '種別コード' => 'type_code',
+            '銘柄シンボル' => 'symbol',
+            '銘柄' => 'symbol',
+            '銘柄名' => 'asset_name',
+            '数量' => 'amount',
+            '単価(jpy)' => 'price_jpy',
+            '単価（jpy）' => 'price_jpy',
+            '取引単価' => 'price_jpy',
+            '手数料(jpy)' => 'fee_jpy',
+            '手数料（jpy）' => 'fee_jpy',
+            '取引所' => 'exchange',
+            'ポートフォリオ' => 'portfolio',
+            'メモ' => 'note',
+        ][$key] ?? str_replace([' ', '-'], '_', $key);
+    }
+
+    /**
+     * @param  array<string, string>  $row
+     * @param  list<string>  $keys
+     */
+    private function value(array $row, array $keys): string
+    {
+        foreach ($keys as $key) {
+            if (array_key_exists($key, $row)) {
+                return trim($row[$key]);
+            }
+        }
+
+        return '';
+    }
+
+    private function portfolio(array $context, string $value, ?int $defaultPortfolioId): ?Portfolio
+    {
+        if ($value !== '') {
+            return $context['portfolios'][$value]
+                ?? $context['portfolios'][Str::lower($value)]
+                ?? null;
+        }
+
+        return $defaultPortfolioId !== null
+            ? ($context['portfolios'][(string) $defaultPortfolioId] ?? null)
+            : null;
+    }
+
+    private function exchange(array $context, string $value): ?Exchange
+    {
+        if ($value === '') {
+            return null;
+        }
+
+        return $context['exchanges'][$value]
+            ?? $context['exchanges'][Str::lower($value)]
+            ?? null;
+    }
+
+    private function type(string $value): ?string
+    {
+        $key = Str::lower($value);
+
+        return [
+            'buy' => Transaction::TYPE_BUY,
+            '買い' => Transaction::TYPE_BUY,
+            '購入' => Transaction::TYPE_BUY,
+            'sell' => Transaction::TYPE_SELL,
+            '売り' => Transaction::TYPE_SELL,
+            '売却' => Transaction::TYPE_SELL,
+            'transfer_in' => Transaction::TYPE_TRANSFER_IN,
+            '入庫' => Transaction::TYPE_TRANSFER_IN,
+            '入金' => Transaction::TYPE_TRANSFER_IN,
+            'transfer_out' => Transaction::TYPE_TRANSFER_OUT,
+            '出庫' => Transaction::TYPE_TRANSFER_OUT,
+            '出金' => Transaction::TYPE_TRANSFER_OUT,
+        ][$key] ?? null;
+    }
+
+    private function decimal(string $value, bool $nullableZero = false): ?float
+    {
+        if ($value === '') {
+            return $nullableZero ? 0.0 : null;
+        }
+
+        $normalized = str_replace([',', '¥', '￥', '円'], '', $value);
+
+        return is_numeric($normalized) ? (float) $normalized : null;
+    }
+
+    private function dateTime(string $value): ?Carbon
+    {
+        if ($value === '') {
+            return null;
+        }
+
+        try {
+            return Carbon::parse($value);
+        } catch (Throwable) {
+            return null;
+        }
+    }
+
+    /**
+     * @param  list<mixed>  $values
+     */
+    private function isBlankRow(array $values): bool
+    {
+        foreach ($values as $value) {
+            if (trim((string) $value) !== '') {
+                return false;
+            }
+        }
+
+        return true;
+    }
+}

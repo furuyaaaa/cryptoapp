@@ -160,6 +160,16 @@ export default function Index({ transactions, filters, filterOptions }) {
                             CSV
                         </a>
                         <Link
+                            href={route('transactions.import.create')}
+                            className="inline-flex items-center gap-1.5 rounded-md border border-gray-300 bg-white px-3 py-2 text-xs font-semibold uppercase tracking-widest text-gray-700 shadow-sm transition hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2"
+                            title="CSVから取引履歴を取り込みます"
+                        >
+                            <svg className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+                                <path fillRule="evenodd" d="M3 4a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm7 13a1 1 0 01-1-1V7.414L6.707 9.707a1 1 0 01-1.414-1.414l4-4a1 1 0 011.414 0l4 4a1 1 0 01-1.414 1.414L11 7.414V16a1 1 0 01-1 1z" clipRule="evenodd" />
+                            </svg>
+                            Import
+                        </Link>
+                        <Link
                             href={route('transactions.create')}
                             className="inline-flex items-center rounded-md border border-transparent bg-indigo-600 px-4 py-2 text-xs font-semibold uppercase tracking-widest text-white shadow-sm transition hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2"
                         >
