@@ -147,7 +147,11 @@ final class TransactionCsvImportService
             return [[], ['CSVヘッダー行が見つかりません。']];
         }
 
-        $headers = array_map(fn ($header) => $this->normalizeHeader((string) $header), $headers);
+        $isBinanceJapanTradeExport = $this->isBinanceJapanTradeExport($headers);
+        $headers = array_map(
+            fn ($header) => $this->normalizeHeader((string) $header, $isBinanceJapanTradeExport),
+            $headers,
+        );
         $rows = [];
         $errors = [];
         $line = 1;
@@ -170,7 +174,12 @@ final class TransactionCsvImportService
                 continue;
             }
 
-            $rows[] = array_combine($headers, array_map(fn ($value) => trim((string) $value), $values));
+            $row = array_combine($headers, array_map(fn ($value) => trim((string) $value), $values));
+            if ($isBinanceJapanTradeExport) {
+                $row = $this->normalizeBinanceJapanTradeRow($row);
+            }
+
+            $rows[] = $row;
         }
 
         fclose($handle);
@@ -222,6 +231,9 @@ final class TransactionCsvImportService
 
         $symbol = Str::upper($this->value($row, ['symbol', 'asset_symbol']));
         if ($symbol === '') {
+            $symbol = $this->symbolFromMarketPair($this->value($row, ['market_pair']));
+        }
+        if ($symbol === '') {
             return ['error' => "{$line}行目: 銘柄シンボルが未入力です。"];
         }
 
@@ -265,6 +277,10 @@ final class TransactionCsvImportService
 
         $exchange = $this->exchange($context, $this->value($row, ['exchange_id', 'exchange']));
         $note = $this->value($row, ['note']);
+        $feeRaw = $this->value($row, ['fee_raw']);
+        if ($feeRaw !== '' && $this->feeUnit($feeRaw) !== 'JPY') {
+            $note = trim($note.($note !== '' ? ' / ' : '').'手数料: '.$feeRaw);
+        }
         $externalId = $this->value($row, ['external_id'])
             ?: hash('sha256', implode('|', [
                 $portfolio->id,
@@ -306,10 +322,27 @@ final class TransactionCsvImportService
         ], 'will_create_asset' => $willCreateAsset];
     }
 
-    private function normalizeHeader(string $header): string
+    private function normalizeHeader(string $header, bool $isBinanceJapanTradeExport = false): string
     {
         $header = preg_replace('/^\xEF\xBB\xBF/', '', trim($header));
         $key = Str::lower($header);
+
+        if ($isBinanceJapanTradeExport) {
+            return [
+                'date(utc)' => 'executed_at',
+                'date' => 'executed_at',
+                'time' => 'executed_at',
+                'pair' => 'market_pair',
+                'market' => 'market_pair',
+                'side' => 'type',
+                'price' => 'price_jpy',
+                'executed' => 'amount',
+                'filled' => 'amount',
+                'amount' => 'quote_amount_jpy',
+                'fee' => 'fee_raw',
+                'role' => 'role',
+            ][$key] ?? str_replace([' ', '-'], '_', $key);
+        }
 
         return [
             '取引日時' => 'executed_at',
@@ -329,6 +362,58 @@ final class TransactionCsvImportService
             'ポートフォリオ' => 'portfolio',
             'メモ' => 'note',
         ][$key] ?? str_replace([' ', '-'], '_', $key);
+    }
+
+    /**
+     * @param  list<mixed>  $headers
+     */
+    private function isBinanceJapanTradeExport(array $headers): bool
+    {
+        $keys = array_map(
+            fn ($header): string => Str::lower((string) preg_replace('/^\xEF\xBB\xBF/', '', trim((string) $header))),
+            $headers,
+        );
+
+        return count(array_intersect(['date(utc)', 'pair', 'side', 'price', 'executed', 'amount', 'fee'], $keys)) >= 5;
+    }
+
+    /**
+     * @param  array<string, string>  $row
+     * @return array<string, string>
+     */
+    private function normalizeBinanceJapanTradeRow(array $row): array
+    {
+        $row['exchange'] = $row['exchange'] ?? 'Binance Japan';
+
+        if (($row['fee_jpy'] ?? '') === '' && ($row['fee_raw'] ?? '') !== '' && $this->feeUnit($row['fee_raw']) === 'JPY') {
+            $row['fee_jpy'] = $row['fee_raw'];
+        }
+
+        return $row;
+    }
+
+    private function symbolFromMarketPair(string $value): string
+    {
+        if ($value === '') {
+            return '';
+        }
+
+        $pair = Str::upper(str_replace(['-', '_', '/', ' '], '', $value));
+
+        foreach (['JPY', 'USDT', 'USD', 'BTC', 'ETH', 'BNB'] as $quote) {
+            if (str_ends_with($pair, $quote) && strlen($pair) > strlen($quote)) {
+                return substr($pair, 0, -strlen($quote));
+            }
+        }
+
+        return $pair;
+    }
+
+    private function feeUnit(string $value): string
+    {
+        $parts = preg_split('/\s+/', trim($value));
+
+        return Str::upper((string) ($parts[1] ?? 'JPY'));
     }
 
     /**
@@ -396,7 +481,8 @@ final class TransactionCsvImportService
             return $nullableZero ? 0.0 : null;
         }
 
-        $normalized = str_replace([',', '¥', '￥', '円'], '', $value);
+        $normalized = trim(str_replace([',', '¥', '￥', '円'], '', $value));
+        $normalized = preg_replace('/\s*[A-Za-z]+$/', '', $normalized);
 
         return is_numeric($normalized) ? (float) $normalized : null;
     }
