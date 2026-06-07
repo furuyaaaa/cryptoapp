@@ -312,6 +312,56 @@ test('CSVから取引を取り込める', function () {
     ]);
 });
 
+test('Binance Japanの現物取引CSVを取り込める', function () {
+    $user = User::factory()->create();
+    $portfolio = Portfolio::factory()->for($user)->create(['name' => 'Main']);
+    $exchange = Exchange::factory()->create(['name' => 'Binance Japan', 'code' => 'binance']);
+
+    $csv = implode("\n", [
+        'Date(UTC),Pair,Side,Price,Executed,Amount,Fee,Role',
+        '2026-06-01 10:20:00,BTCJPY,BUY,10000000 JPY,0.01 BTC,100000 JPY,0.00001 BTC,TAKER',
+    ]);
+
+    $this->actingAs($user)
+        ->from(route('transactions.import.create'))
+        ->post(route('transactions.import.store'), [
+            'action' => 'preview',
+            'portfolio_id' => $portfolio->id,
+            'csv_file' => UploadedFile::fake()->createWithContent('binance-trades.csv', $csv),
+        ])
+        ->assertRedirect(route('transactions.import.create'))
+        ->assertSessionHas('import_preview');
+
+    $preview = session('import_preview');
+    expect($preview['importable'])->toBe(1)
+        ->and($preview['rows'][0]['symbol'])->toBe('BTC')
+        ->and($preview['rows'][0]['amount'])->toBe(0.01)
+        ->and($preview['rows'][0]['price_jpy'])->toBe(10000000.0)
+        ->and($preview['rows'][0]['exchange'])->toBe('Binance Japan');
+
+    $this->actingAs($user)
+        ->post(route('transactions.import.store'), [
+            'action' => 'import',
+            'import_token' => $preview['token'],
+            'portfolio_id' => $preview['portfolio_id'],
+        ])
+        ->assertRedirect(route('transactions.index'))
+        ->assertSessionHas('success');
+
+    $asset = Asset::where('symbol', 'BTC')->first();
+
+    $this->assertDatabaseHas('transactions', [
+        'portfolio_id' => $portfolio->id,
+        'asset_id' => $asset->id,
+        'exchange_id' => $exchange->id,
+        'type' => Transaction::TYPE_BUY,
+        'amount' => 0.01,
+        'price_jpy' => 10000000,
+        'fee_jpy' => 0,
+        'note' => '手数料: 0.00001 BTC',
+    ]);
+});
+
 test('CSVインポートは重複external_idをスキップする', function () {
     $user = User::factory()->create();
     Portfolio::factory()->for($user)->create(['name' => 'Main']);
