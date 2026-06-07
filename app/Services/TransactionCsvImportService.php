@@ -17,6 +17,61 @@ final class TransactionCsvImportService
 {
     private const MAX_ROWS = 1000;
 
+    private const PREVIEW_ROWS = 20;
+
+    /**
+     * @return array{total: int, importable: int, skipped: int, create_assets: int, errors: list<string>, rows: list<array<string, mixed>>}
+     */
+    public function preview(User $user, string $path, ?int $defaultPortfolioId = null): array
+    {
+        [$rows, $errors] = $this->readRows($path);
+        if ($errors !== []) {
+            return ['total' => 0, 'importable' => 0, 'skipped' => 0, 'create_assets' => 0, 'errors' => $errors, 'rows' => []];
+        }
+
+        $context = $this->context($user);
+        $previewRows = [];
+        $importable = 0;
+        $skipped = 0;
+        $createAssets = [];
+
+        foreach ($rows as $index => $row) {
+            $line = $index + 2;
+            $mapped = $this->prepareRow($row, $line, $context, $defaultPortfolioId, false);
+
+            if (isset($mapped['error'])) {
+                $errors[] = $mapped['error'];
+
+                continue;
+            }
+
+            if ($mapped['will_create_asset']) {
+                $createAssets[$mapped['preview']['symbol']] = true;
+            }
+
+            if ($this->duplicateExists($mapped['data']['external_source'], $mapped['data']['external_id'])) {
+                $skipped++;
+                $mapped['preview']['status'] = 'skip';
+            } else {
+                $importable++;
+                $mapped['preview']['status'] = 'import';
+            }
+
+            if (count($previewRows) < self::PREVIEW_ROWS) {
+                $previewRows[] = $mapped['preview'];
+            }
+        }
+
+        return [
+            'total' => count($rows),
+            'importable' => $errors === [] ? $importable : 0,
+            'skipped' => $errors === [] ? $skipped : 0,
+            'create_assets' => $errors === [] ? count($createAssets) : 0,
+            'errors' => $errors,
+            'rows' => $errors === [] ? $previewRows : [],
+        ];
+    }
+
     /**
      * @return array{imported: int, skipped: int, errors: list<string>}
      */
@@ -35,7 +90,7 @@ final class TransactionCsvImportService
 
             foreach ($rows as $index => $row) {
                 $line = $index + 2;
-                $mapped = $this->prepareRow($row, $line, $context, $defaultPortfolioId);
+                $mapped = $this->prepareRow($row, $line, $context, $defaultPortfolioId, true);
 
                 if (isset($mapped['error'])) {
                     $errors[] = $mapped['error'];
@@ -55,12 +110,7 @@ final class TransactionCsvImportService
             $imported = 0;
             $skipped = 0;
             foreach ($prepared as $data) {
-                $exists = Transaction::query()
-                    ->where('external_source', $data['external_source'])
-                    ->where('external_id', $data['external_id'])
-                    ->exists();
-
-                if ($exists) {
+                if ($this->duplicateExists($data['external_source'], $data['external_id'])) {
                     $skipped++;
 
                     continue;
@@ -160,9 +210,9 @@ final class TransactionCsvImportService
     /**
      * @param  array{portfolios: array<string, Portfolio>, assets: array<string, Asset>, exchanges: array<string, Exchange>}  $context
      * @param  array<string, string>  $row
-     * @return array{data: array<string, mixed>}|array{error: string}
+     * @return array{data: array<string, mixed>, preview: array<string, mixed>, will_create_asset: bool}|array{error: string}
      */
-    private function prepareRow(array $row, int $line, array &$context, ?int $defaultPortfolioId): array
+    private function prepareRow(array $row, int $line, array &$context, ?int $defaultPortfolioId, bool $createMissingAsset): array
     {
         $portfolioValue = $this->value($row, ['portfolio_id', 'portfolio']);
         $portfolio = $this->portfolio($context, $portfolioValue, $defaultPortfolioId);
@@ -176,7 +226,8 @@ final class TransactionCsvImportService
         }
 
         $asset = $context['assets'][$symbol] ?? null;
-        if (! $asset) {
+        $willCreateAsset = $asset === null;
+        if (! $asset && $createMissingAsset) {
             $asset = Asset::create([
                 'symbol' => $symbol,
                 'name' => $this->value($row, ['asset_name']) ?: $symbol,
@@ -217,7 +268,7 @@ final class TransactionCsvImportService
         $externalId = $this->value($row, ['external_id'])
             ?: hash('sha256', implode('|', [
                 $portfolio->id,
-                $asset->id,
+                $asset?->id ?? $symbol,
                 $exchange?->id ?? '',
                 $type,
                 number_format($amount, 8, '.', ''),
@@ -229,7 +280,7 @@ final class TransactionCsvImportService
 
         return ['data' => [
             'portfolio_id' => $portfolio->id,
-            'asset_id' => $asset->id,
+            'asset_id' => $asset?->id,
             'exchange_id' => $exchange?->id,
             'type' => $type,
             'amount' => $amount,
@@ -240,7 +291,19 @@ final class TransactionCsvImportService
             'external_source' => 'csv:manual',
             'external_id' => $externalId,
             'synced_at' => now(),
-        ]];
+        ], 'preview' => [
+            'line' => $line,
+            'executed_at' => $executedAt->format('Y-m-d H:i:s'),
+            'type' => $type,
+            'symbol' => $symbol,
+            'amount' => $amount,
+            'price_jpy' => $price,
+            'fee_jpy' => $fee,
+            'portfolio' => $portfolio->name,
+            'exchange' => $exchange?->name,
+            'note' => $note,
+            'will_create_asset' => $willCreateAsset,
+        ], 'will_create_asset' => $willCreateAsset];
     }
 
     private function normalizeHeader(string $header): string
@@ -349,6 +412,14 @@ final class TransactionCsvImportService
         } catch (Throwable) {
             return null;
         }
+    }
+
+    private function duplicateExists(string $externalSource, string $externalId): bool
+    {
+        return Transaction::query()
+            ->where('external_source', $externalSource)
+            ->where('external_id', $externalId)
+            ->exists();
     }
 
     /**

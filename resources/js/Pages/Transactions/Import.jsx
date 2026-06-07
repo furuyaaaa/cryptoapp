@@ -3,23 +3,39 @@ import InputLabel from '@/Components/InputLabel';
 import PrimaryButton from '@/Components/PrimaryButton';
 import SecondaryButton from '@/Components/SecondaryButton';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
-import { Head, Link, useForm, usePage } from '@inertiajs/react';
+import { Head, Link, router, useForm, usePage } from '@inertiajs/react';
 
 export default function Import({ portfolios }) {
     const flash = usePage().props.flash ?? {};
     const importErrors = flash.import_errors ?? [];
+    const preview = flash.import_preview ?? null;
 
     const { data, setData, post, processing, errors } = useForm({
+        action: 'preview',
         portfolio_id: portfolios[0]?.id ?? '',
         csv_file: null,
+        import_token: '',
     });
 
-    const submit = (e) => {
+    const previewCsv = (e) => {
         e.preventDefault();
         post(route('transactions.import.store'), {
             forceFormData: true,
             preserveScroll: true,
         });
+    };
+
+    const importCsv = (e) => {
+        e.preventDefault();
+        router.post(
+            route('transactions.import.store'),
+            {
+                action: 'import',
+                import_token: preview.token,
+                portfolio_id: preview.portfolio_id ?? data.portfolio_id,
+            },
+            { preserveScroll: true },
+        );
     };
 
     return (
@@ -56,7 +72,78 @@ export default function Import({ portfolios }) {
                         </div>
                     )}
 
-                    <form onSubmit={submit} className="space-y-6 rounded-lg bg-white p-6 shadow">
+                    {preview && (
+                        <div className="space-y-4 rounded-lg bg-white p-6 shadow">
+                            <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+                                <div className="rounded-md border border-gray-200 p-3">
+                                    <div className="text-xs text-gray-500">総行数</div>
+                                    <div className="mt-1 text-2xl font-semibold text-gray-900">{preview.total}</div>
+                                </div>
+                                <div className="rounded-md border border-emerald-200 bg-emerald-50 p-3">
+                                    <div className="text-xs text-emerald-700">登録予定</div>
+                                    <div className="mt-1 text-2xl font-semibold text-emerald-800">{preview.importable}</div>
+                                </div>
+                                <div className="rounded-md border border-amber-200 bg-amber-50 p-3">
+                                    <div className="text-xs text-amber-700">重複スキップ</div>
+                                    <div className="mt-1 text-2xl font-semibold text-amber-800">{preview.skipped}</div>
+                                </div>
+                                <div className="rounded-md border border-sky-200 bg-sky-50 p-3">
+                                    <div className="text-xs text-sky-700">新規銘柄</div>
+                                    <div className="mt-1 text-2xl font-semibold text-sky-800">{preview.create_assets}</div>
+                                </div>
+                            </div>
+
+                            <div className="overflow-x-auto rounded-md border border-gray-200">
+                                <table className="min-w-full divide-y divide-gray-200 text-sm">
+                                    <thead className="bg-gray-50">
+                                        <tr>
+                                            <th className="px-3 py-2 text-left font-semibold text-gray-600">行</th>
+                                            <th className="px-3 py-2 text-left font-semibold text-gray-600">状態</th>
+                                            <th className="px-3 py-2 text-left font-semibold text-gray-600">日時</th>
+                                            <th className="px-3 py-2 text-left font-semibold text-gray-600">種別</th>
+                                            <th className="px-3 py-2 text-left font-semibold text-gray-600">銘柄</th>
+                                            <th className="px-3 py-2 text-right font-semibold text-gray-600">数量</th>
+                                            <th className="px-3 py-2 text-right font-semibold text-gray-600">単価</th>
+                                            <th className="px-3 py-2 text-left font-semibold text-gray-600">ポートフォリオ</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody className="divide-y divide-gray-200 bg-white">
+                                        {preview.rows.map((row) => (
+                                            <tr key={row.line}>
+                                                <td className="px-3 py-2 text-gray-500">{row.line}</td>
+                                                <td className="px-3 py-2">
+                                                    <span className={`inline-flex rounded-full px-2 py-0.5 text-xs font-medium ${row.status === 'skip' ? 'bg-amber-100 text-amber-700' : 'bg-emerald-100 text-emerald-700'}`}>
+                                                        {row.status === 'skip' ? '重複' : '登録'}
+                                                    </span>
+                                                </td>
+                                                <td className="whitespace-nowrap px-3 py-2 font-mono text-gray-700">{row.executed_at}</td>
+                                                <td className="px-3 py-2 text-gray-700">{row.type}</td>
+                                                <td className="px-3 py-2 font-semibold text-gray-900">
+                                                    {row.symbol}
+                                                    {row.will_create_asset && (
+                                                        <span className="ms-2 rounded-full bg-sky-100 px-2 py-0.5 text-xs font-medium text-sky-700">
+                                                            新規
+                                                        </span>
+                                                    )}
+                                                </td>
+                                                <td className="px-3 py-2 text-right font-mono text-gray-700">{row.amount}</td>
+                                                <td className="px-3 py-2 text-right font-mono text-gray-700">{Number(row.price_jpy).toLocaleString('ja-JP')}</td>
+                                                <td className="px-3 py-2 text-gray-700">{row.portfolio}</td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
+                            </div>
+
+                            <div className="flex justify-end">
+                                <PrimaryButton onClick={importCsv} disabled={processing || preview.importable === 0}>
+                                    この内容で取り込む
+                                </PrimaryButton>
+                            </div>
+                        </div>
+                    )}
+
+                    <form onSubmit={previewCsv} className="space-y-6 rounded-lg bg-white p-6 shadow">
                         <div>
                             <InputLabel htmlFor="portfolio_id" value="既定のポートフォリオ" />
                             <select
@@ -93,7 +180,7 @@ export default function Import({ portfolios }) {
 
                         <div className="flex justify-end">
                             <PrimaryButton disabled={processing || !data.csv_file}>
-                                取り込む
+                                プレビュー
                             </PrimaryButton>
                         </div>
                     </form>

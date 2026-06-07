@@ -15,12 +15,14 @@ class TransactionCsvImportRequest extends FormRequest
     public function rules(): array
     {
         return [
+            'action' => ['required', Rule::in(['preview', 'import'])],
             'portfolio_id' => [
                 'nullable',
                 'integer',
                 Rule::exists('portfolios', 'id')->where('user_id', $this->user()->id),
             ],
-            'csv_file' => ['required', 'file', 'mimes:csv,txt', 'max:2048'],
+            'csv_file' => ['required_if:action,preview', 'file', 'mimes:csv,txt', 'max:2048'],
+            'import_token' => ['required_if:action,import', 'nullable', 'string'],
         ];
     }
 
@@ -29,6 +31,7 @@ class TransactionCsvImportRequest extends FormRequest
         return [
             'portfolio_id' => '既定のポートフォリオ',
             'csv_file' => 'CSVファイル',
+            'import_token' => 'インポート確認トークン',
         ];
     }
 }
