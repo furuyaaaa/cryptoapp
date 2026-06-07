@@ -466,6 +466,59 @@ test('bitbankの約定履歴CSVを取り込める', function () {
     ]);
 });
 
+test('Coincheckの業界標準フォーマットCSVを取り込める', function () {
+    $user = User::factory()->create();
+    $portfolio = Portfolio::factory()->for($user)->create(['name' => 'Main']);
+    $exchange = Exchange::factory()->create(['name' => 'Coincheck', 'code' => 'coincheck']);
+
+    $csv = implode("\n", [
+        '取引日時,取引種別,取引形態,通貨ペア,増加通貨名,増加数量,減少通貨名,減少数量,約定代金,約定価格,手数料通貨,手数料数量,送付元アドレス,送付先アドレス,登録番号,社名,備考',
+        '2026-06-01 10:20:00,売買,現物,BTC/JPY,BTC,0.01,JPY,100000,100000,10000000,JPY,120,,,cc-1,Coincheck,業界標準CSV',
+    ]);
+
+    $this->actingAs($user)
+        ->from(route('transactions.import.create'))
+        ->post(route('transactions.import.store'), [
+            'action' => 'preview',
+            'portfolio_id' => $portfolio->id,
+            'csv_file' => UploadedFile::fake()->createWithContent('coincheck-trades.csv', $csv),
+        ])
+        ->assertRedirect(route('transactions.import.create'))
+        ->assertSessionHas('import_preview');
+
+    $preview = session('import_preview');
+    expect($preview['importable'])->toBe(1)
+        ->and($preview['rows'][0]['symbol'])->toBe('BTC')
+        ->and($preview['rows'][0]['type'])->toBe(Transaction::TYPE_BUY)
+        ->and($preview['rows'][0]['amount'])->toBe(0.01)
+        ->and($preview['rows'][0]['price_jpy'])->toBe(10000000.0)
+        ->and($preview['rows'][0]['fee_jpy'])->toBe(120.0)
+        ->and($preview['rows'][0]['exchange'])->toBe('Coincheck');
+
+    $this->actingAs($user)
+        ->post(route('transactions.import.store'), [
+            'action' => 'import',
+            'import_token' => $preview['token'],
+            'portfolio_id' => $preview['portfolio_id'],
+        ])
+        ->assertRedirect(route('transactions.index'))
+        ->assertSessionHas('success');
+
+    $asset = Asset::where('symbol', 'BTC')->first();
+
+    $this->assertDatabaseHas('transactions', [
+        'portfolio_id' => $portfolio->id,
+        'asset_id' => $asset->id,
+        'exchange_id' => $exchange->id,
+        'type' => Transaction::TYPE_BUY,
+        'amount' => 0.01,
+        'price_jpy' => 10000000,
+        'fee_jpy' => 120,
+        'external_id' => 'cc-1',
+        'note' => '業界標準CSV',
+    ]);
+});
+
 test('CSVインポートは重複external_idをスキップする', function () {
     $user = User::factory()->create();
     Portfolio::factory()->for($user)->create(['name' => 'Main']);

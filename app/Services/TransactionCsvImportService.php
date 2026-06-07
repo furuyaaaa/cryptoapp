@@ -150,12 +150,14 @@ final class TransactionCsvImportService
         $isBinanceJapanTradeExport = $this->isBinanceJapanTradeExport($headers);
         $isBitFlyerTradeExport = $this->isBitFlyerTradeExport($headers);
         $isBitbankSpotTradeExport = $this->isBitbankSpotTradeExport($headers);
+        $isCoincheckIndustryStandardExport = $this->isCoincheckIndustryStandardExport($headers);
         $headers = array_map(
             fn ($header) => $this->normalizeHeader(
                 (string) $header,
                 $isBinanceJapanTradeExport,
                 $isBitFlyerTradeExport,
                 $isBitbankSpotTradeExport,
+                $isCoincheckIndustryStandardExport,
             ),
             $headers,
         );
@@ -190,6 +192,9 @@ final class TransactionCsvImportService
             }
             if ($isBitbankSpotTradeExport) {
                 $row = $this->normalizeBitbankSpotTradeRow($row);
+            }
+            if ($isCoincheckIndustryStandardExport) {
+                $row = $this->normalizeCoincheckIndustryStandardRow($row);
             }
 
             $rows[] = $row;
@@ -340,6 +345,7 @@ final class TransactionCsvImportService
         bool $isBinanceJapanTradeExport = false,
         bool $isBitFlyerTradeExport = false,
         bool $isBitbankSpotTradeExport = false,
+        bool $isCoincheckIndustryStandardExport = false,
     ): string {
         $key = $this->normalizedHeaderKey($header);
 
@@ -410,6 +416,28 @@ final class TransactionCsvImportService
             ][$key] ?? str_replace([' ', '-'], '_', $key);
         }
 
+        if ($isCoincheckIndustryStandardExport) {
+            return [
+                '取引日時' => 'executed_at',
+                '日時' => 'executed_at',
+                '取引種別' => 'transaction_category',
+                '取引形態' => 'transaction_mode',
+                '通貨ペア' => 'market_pair',
+                '増加通貨名' => 'increase_currency',
+                '増加数量' => 'increase_amount',
+                '減少通貨名' => 'decrease_currency',
+                '減少数量' => 'decrease_amount',
+                '約定代金' => 'quote_amount_jpy',
+                '約定価格' => 'price_jpy',
+                '約定価格/数量' => 'quote_amount_jpy',
+                '単価' => 'price_jpy',
+                '手数料通貨' => 'fee_currency',
+                '手数料数量' => 'fee_amount',
+                '登録番号' => 'external_id',
+                '備考' => 'note',
+            ][$key] ?? str_replace([' ', '-'], '_', $key);
+        }
+
         return [
             '取引日時' => 'executed_at',
             '日時' => 'executed_at',
@@ -471,6 +499,16 @@ final class TransactionCsvImportService
     }
 
     /**
+     * @param  list<mixed>  $headers
+     */
+    private function isCoincheckIndustryStandardExport(array $headers): bool
+    {
+        $keys = array_map(fn ($header): string => $this->normalizedHeaderKey((string) $header), $headers);
+
+        return count(array_intersect(['取引日時', '取引種別', '取引形態', '通貨ペア', '増加通貨名', '増加数量', '減少通貨名', '減少数量', '約定価格', '手数料通貨', '手数料数量'], $keys)) >= 8;
+    }
+
+    /**
      * @param  array<string, string>  $row
      * @return array<string, string>
      */
@@ -515,6 +553,53 @@ final class TransactionCsvImportService
 
         if (($row['fee_jpy'] ?? '') === '' && ($row['fee_raw'] ?? '') !== '') {
             $row['fee_jpy'] = $this->absoluteDecimalString($row['fee_raw']);
+        }
+
+        return $row;
+    }
+
+    /**
+     * @param  array<string, string>  $row
+     * @return array<string, string>
+     */
+    private function normalizeCoincheckIndustryStandardRow(array $row): array
+    {
+        $row['exchange'] = $row['exchange'] ?? 'Coincheck';
+
+        $increaseCurrency = Str::upper($row['increase_currency'] ?? '');
+        $decreaseCurrency = Str::upper($row['decrease_currency'] ?? '');
+
+        if (($row['type'] ?? '') === '') {
+            if ($increaseCurrency !== '' && $increaseCurrency !== 'JPY' && $decreaseCurrency === 'JPY') {
+                $row['type'] = 'buy';
+            } elseif ($increaseCurrency === 'JPY' && $decreaseCurrency !== '' && $decreaseCurrency !== 'JPY') {
+                $row['type'] = 'sell';
+            }
+        }
+
+        if (($row['symbol'] ?? '') === '') {
+            $row['symbol'] = match (true) {
+                $increaseCurrency !== '' && $increaseCurrency !== 'JPY' => $increaseCurrency,
+                $decreaseCurrency !== '' && $decreaseCurrency !== 'JPY' => $decreaseCurrency,
+                default => $this->symbolFromMarketPair($row['market_pair'] ?? ''),
+            };
+        }
+
+        if (($row['amount'] ?? '') === '') {
+            $row['amount'] = match ($row['type'] ?? '') {
+                'buy' => $row['increase_amount'] ?? '',
+                'sell' => $row['decrease_amount'] ?? '',
+                default => '',
+            };
+        }
+
+        if (($row['fee_jpy'] ?? '') === '' && ($row['fee_amount'] ?? '') !== '') {
+            $feeCurrency = Str::upper($row['fee_currency'] ?? 'JPY');
+            if ($feeCurrency === 'JPY') {
+                $row['fee_jpy'] = $this->absoluteDecimalString($row['fee_amount']);
+            } else {
+                $row['fee_raw'] = trim($row['fee_amount'].' '.$feeCurrency);
+            }
         }
 
         return $row;
