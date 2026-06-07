@@ -8,6 +8,8 @@ use App\Services\TransactionCsvImportService;
 use App\Services\TransactionFormDataService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Str;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -26,11 +28,50 @@ class TransactionCsvImportController extends Controller
     ): RedirectResponse {
         $this->authorize('create', Transaction::class);
 
+        if ($request->input('action') === 'preview') {
+            $token = (string) Str::uuid();
+            $path = $request->file('csv_file')->storeAs(
+                'transaction-import-previews',
+                $request->user()->id.'-'.$token.'.csv',
+            );
+
+            $result = $importer->preview(
+                user: $request->user(),
+                path: Storage::path($path),
+                defaultPortfolioId: $request->integer('portfolio_id') ?: null,
+            );
+
+            if ($result['errors'] !== []) {
+                Storage::delete($path);
+
+                return back()
+                    ->withInput()
+                    ->with('import_errors', $result['errors']);
+            }
+
+            return back()
+                ->withInput()
+                ->with('import_preview', [
+                    ...$result,
+                    'token' => $token,
+                    'portfolio_id' => $request->input('portfolio_id'),
+                ]);
+        }
+
+        $path = 'transaction-import-previews/'.$request->user()->id.'-'.$request->input('import_token').'.csv';
+        if (! Storage::exists($path)) {
+            return back()
+                ->withInput()
+                ->with('import_errors', ['プレビュー済みCSVが見つかりません。もう一度CSVを選択してください。']);
+        }
+
         $result = $importer->import(
             user: $request->user(),
-            path: $request->file('csv_file')->getRealPath(),
+            path: Storage::path($path),
             defaultPortfolioId: $request->integer('portfolio_id') ?: null,
         );
+
+        Storage::delete($path);
 
         if ($result['errors'] !== []) {
             return back()
