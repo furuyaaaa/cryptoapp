@@ -28,6 +28,10 @@
         "pestphp/pest-plugin-laravel": "^3.2"
     },
     "autoload": {
+        "exclude-from-classmap": [
+            "vendor/laravel/pint/app/",
+            "vendor/league/flysystem/src/Local/"
+        ],
         "psr-4": {
             "App\\": "app/",
             "Database\\Factories\\": "database/factories/",
