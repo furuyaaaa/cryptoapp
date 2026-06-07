@@ -36,3 +36,7 @@ Schedule::command('zaif:sync-executions')
 Schedule::command('binance:sync-executions')
     ->everyThirtyMinutes()
     ->withoutOverlapping();
+
+Schedule::command('transaction-import-previews:prune')
+    ->daily()
+    ->withoutOverlapping();

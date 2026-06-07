@@ -64,6 +64,9 @@ Route::middleware(['auth', 'verified', '2fa', 'subscribed', 'throttle:writes'])-
 
     Route::get('transactions/import', [TransactionCsvImportController::class, 'create'])
         ->name('transactions.import.create');
+    Route::get('transactions/import/templates/{template}', [TransactionCsvImportController::class, 'template'])
+        ->middleware('throttle:exports')
+        ->name('transactions.import.template');
     Route::post('transactions/import', [TransactionCsvImportController::class, 'store'])
         ->name('transactions.import.store');
 

@@ -225,7 +225,42 @@ test('CSVインポート画面を表示できる', function () {
         ->assertInertia(fn ($page) => $page
             ->component('Transactions/Import')
             ->has('portfolios', 1)
+            ->has('csvTemplates', 7)
         );
+});
+
+test('ゲストはCSVインポートテンプレートをダウンロードできない', function () {
+    $this->get(route('transactions.import.template', 'standard'))
+        ->assertRedirect(route('login'));
+});
+
+test('CSVインポートテンプレートをダウンロードできる', function () {
+    $user = User::factory()->create();
+
+    $response = $this->actingAs($user)
+        ->get(route('transactions.import.template', 'binance-japan'));
+
+    $response->assertOk();
+    $response->assertHeader('Content-Type', 'text/csv; charset=UTF-8');
+    $response->assertHeader(
+        'Content-Disposition',
+        'attachment; filename="transaction_import_template_binance-japan.csv"',
+    );
+
+    $csv = $response->streamedContent();
+
+    expect($csv)->toStartWith("\xEF\xBB\xBF")
+        ->and($csv)->toContain('取引日時,種別コード,銘柄シンボル,銘柄名,数量,単価(JPY),手数料(JPY),取引所,ポートフォリオ,メモ,external_id')
+        ->and($csv)->toContain('"2026-06-01 10:00:00",buy,BTC,Bitcoin,0.01,10000000,0,"Binance Japan",')
+        ->and($csv)->toContain('binance-japan-20260601-001');
+});
+
+test('存在しないCSVインポートテンプレートは404になる', function () {
+    $user = User::factory()->create();
+
+    $this->actingAs($user)
+        ->get(route('transactions.import.template', 'unknown'))
+        ->assertNotFound();
 });
 
 test('CSVから取引を取り込める', function () {
