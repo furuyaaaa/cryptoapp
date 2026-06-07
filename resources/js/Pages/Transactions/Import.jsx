@@ -5,7 +5,7 @@ import SecondaryButton from '@/Components/SecondaryButton';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 import { Head, Link, router, useForm, usePage } from '@inertiajs/react';
 
-export default function Import({ portfolios }) {
+export default function Import({ portfolios, csvTemplates = [] }) {
     const flash = usePage().props.flash ?? {};
     const importErrors = flash.import_errors ?? [];
     const preview = flash.import_preview ?? null;
@@ -144,6 +144,23 @@ export default function Import({ portfolios }) {
                     )}
 
                     <form onSubmit={previewCsv} className="space-y-6 rounded-lg bg-white p-6 shadow">
+                        {csvTemplates.length > 0 && (
+                            <div>
+                                <InputLabel value="CSVテンプレート" />
+                                <div className="mt-2 flex flex-wrap gap-2">
+                                    {csvTemplates.map((template) => (
+                                        <a
+                                            key={template.slug}
+                                            href={route('transactions.import.template', template.slug)}
+                                            className="inline-flex items-center rounded-md border border-gray-300 bg-white px-3 py-2 text-sm font-medium text-gray-700 shadow-sm transition hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2"
+                                        >
+                                            {template.label}
+                                        </a>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
+
                         <div>
                             <InputLabel htmlFor="portfolio_id" value="既定のポートフォリオ" />
                             <select
