@@ -12,6 +12,7 @@ use App\Http\Controllers\PortfolioController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\TaxController;
 use App\Http\Controllers\TransactionController;
+use App\Http\Controllers\TransactionCsvImportController;
 use Illuminate\Foundation\Application;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
@@ -60,6 +61,11 @@ Route::middleware(['auth', 'verified', '2fa', 'subscribed', 'throttle:writes'])-
     Route::get('transactions/export', [TransactionController::class, 'export'])
         ->middleware('throttle:exports')
         ->name('transactions.export');
+
+    Route::get('transactions/import', [TransactionCsvImportController::class, 'create'])
+        ->name('transactions.import.create');
+    Route::post('transactions/import', [TransactionCsvImportController::class, 'store'])
+        ->name('transactions.import.store');
 
     Route::get('transactions/asset-search', [TransactionController::class, 'assetSearch'])
         ->middleware('throttle:60,1')

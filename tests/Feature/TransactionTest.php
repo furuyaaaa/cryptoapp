@@ -6,6 +6,7 @@ use App\Models\Exchange;
 use App\Models\Portfolio;
 use App\Models\Transaction;
 use App\Models\User;
+use Illuminate\Http\UploadedFile;
 
 test('ゲストは取引一覧にアクセスできない', function () {
     $this->get(route('transactions.index'))
@@ -212,4 +213,113 @@ test('種別と銘柄でフィルタできる', function () {
         ->get(route('transactions.index', ['asset_id' => $btc->id, 'type' => 'buy']))
         ->assertOk()
         ->assertInertia(fn ($page) => $page->has('transactions.data', 1));
+});
+
+test('CSVインポート画面を表示できる', function () {
+    $user = User::factory()->create();
+    Portfolio::factory()->for($user)->create();
+
+    $this->actingAs($user)
+        ->get(route('transactions.import.create'))
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page
+            ->component('Transactions/Import')
+            ->has('portfolios', 1)
+        );
+});
+
+test('CSVから取引を取り込める', function () {
+    $user = User::factory()->create();
+    $portfolio = Portfolio::factory()->for($user)->create(['name' => 'Main']);
+    $exchange = Exchange::factory()->create(['name' => 'Binance Japan', 'code' => 'binance']);
+
+    $csv = implode("\n", [
+        '取引日時,種別コード,銘柄シンボル,銘柄名,数量,単価(JPY),手数料(JPY),取引所,ポートフォリオ,メモ,external_id',
+        '2026-06-01 10:20:00,buy,BTC,Bitcoin,0.01,"10,000,000",100,Binance Japan,Main,過去分,binance-1',
+    ]);
+
+    $this->actingAs($user)
+        ->post(route('transactions.import.store'), [
+            'csv_file' => UploadedFile::fake()->createWithContent('transactions.csv', $csv),
+        ])
+        ->assertRedirect(route('transactions.index'))
+        ->assertSessionHas('success');
+
+    $asset = Asset::where('symbol', 'BTC')->first();
+
+    $this->assertDatabaseHas('transactions', [
+        'portfolio_id' => $portfolio->id,
+        'asset_id' => $asset->id,
+        'exchange_id' => $exchange->id,
+        'type' => Transaction::TYPE_BUY,
+        'external_source' => 'csv:manual',
+        'external_id' => 'binance-1',
+        'note' => '過去分',
+    ]);
+});
+
+test('CSVインポートは重複external_idをスキップする', function () {
+    $user = User::factory()->create();
+    Portfolio::factory()->for($user)->create(['name' => 'Main']);
+
+    $csv = implode("\n", [
+        'executed_at,type,symbol,amount,price_jpy,portfolio,external_id',
+        '2026-06-01 10:20:00,buy,ETH,1,500000,Main,row-1',
+    ]);
+
+    $file = fn () => UploadedFile::fake()->createWithContent('transactions.csv', $csv);
+
+    $this->actingAs($user)
+        ->post(route('transactions.import.store'), ['csv_file' => $file()])
+        ->assertRedirect(route('transactions.index'));
+
+    $this->actingAs($user)
+        ->post(route('transactions.import.store'), ['csv_file' => $file()])
+        ->assertRedirect(route('transactions.index'))
+        ->assertSessionHas('success', 'CSVを取り込みました。登録 0 件、重複スキップ 1 件。');
+
+    expect(Transaction::count())->toBe(1);
+});
+
+test('CSVインポートで他ユーザーのポートフォリオは使えない', function () {
+    $me = User::factory()->create();
+    $other = User::factory()->create();
+    Portfolio::factory()->for($other)->create(['name' => 'Other']);
+
+    $csv = implode("\n", [
+        'executed_at,type,symbol,amount,price_jpy,portfolio',
+        '2026-06-01 10:20:00,buy,BTC,1,1000000,Other',
+    ]);
+
+    $this->actingAs($me)
+        ->from(route('transactions.import.create'))
+        ->post(route('transactions.import.store'), [
+            'csv_file' => UploadedFile::fake()->createWithContent('transactions.csv', $csv),
+        ])
+        ->assertRedirect(route('transactions.import.create'))
+        ->assertSessionHas('import_errors');
+
+    $this->assertDatabaseCount('transactions', 0);
+});
+
+test('CSVインポートで途中行にエラーがある場合は銘柄作成もロールバックされる', function () {
+    $user = User::factory()->create();
+    Portfolio::factory()->for($user)->create(['name' => 'Main']);
+
+    $csv = implode("\n", [
+        'executed_at,type,symbol,amount,price_jpy,portfolio,external_id',
+        '2026-06-01 10:20:00,buy,NEWCOIN,1,500000,Main,row-1',
+        '2026-06-01 10:20:00,buy,BADCOIN,0,500000,Main,row-2',
+    ]);
+
+    $this->actingAs($user)
+        ->from(route('transactions.import.create'))
+        ->post(route('transactions.import.store'), [
+            'csv_file' => UploadedFile::fake()->createWithContent('transactions.csv', $csv),
+        ])
+        ->assertRedirect(route('transactions.import.create'))
+        ->assertSessionHas('import_errors');
+
+    $this->assertDatabaseCount('transactions', 0);
+    $this->assertDatabaseMissing('assets', ['symbol' => 'NEWCOIN']);
 });
