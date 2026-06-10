@@ -4,6 +4,7 @@ namespace App\Http\Requests;
 
 use App\Services\Exchanges\BinanceExecutionSyncService;
 use App\Services\Exchanges\BitbankExecutionSyncService;
+use App\Services\Exchanges\BitgetExecutionSyncService;
 use App\Services\Exchanges\BitFlyerExecutionSyncService;
 use App\Services\Exchanges\CoincheckExecutionSyncService;
 use App\Services\Exchanges\GmoCoinExecutionSyncService;
@@ -27,7 +28,7 @@ class ExchangeConnectionRequest extends FormRequest
                 'integer',
                 Rule::exists('portfolios', 'id')->where('user_id', $this->user()->id),
             ],
-            'exchange_code' => ['required', 'string', Rule::in(['bitflyer', 'bitbank', 'coincheck', 'gmo_coin', 'zaif', 'binance'])],
+            'exchange_code' => ['required', 'string', Rule::in(['bitflyer', 'bitbank', 'coincheck', 'gmo_coin', 'zaif', 'binance', 'bitget'])],
             'product_code' => ['required', 'string', Rule::in([
                 BitFlyerExecutionSyncService::ALL_SPOT_JPY,
                 BitbankExecutionSyncService::ALL_JPY_PAIRS,
@@ -35,13 +36,16 @@ class ExchangeConnectionRequest extends FormRequest
                 GmoCoinExecutionSyncService::ALL_SPOT_SYMBOLS,
                 ZaifExecutionSyncService::ALL_JPY_PAIRS,
                 BinanceExecutionSyncService::ALL_JPY_SYMBOLS,
+                BitgetExecutionSyncService::ALL_USDT_SYMBOLS,
                 'BTC_JPY',
                 'btc_jpy',
                 'BTC',
                 'BTCJPY',
+                'BTCUSDT',
             ])],
             'api_key' => ['required', 'string', 'max:255'],
             'api_secret' => ['required', 'string', 'max:255'],
+            'api_passphrase' => ['nullable', 'required_if:exchange_code,bitget', 'string', 'max:255'],
             'sync_start_mode' => ['required', 'string', Rule::in(['today', 'all', 'custom'])],
             'sync_start_date' => ['nullable', 'required_if:sync_start_mode,custom', 'date_format:Y-m-d'],
         ];
@@ -55,6 +59,7 @@ class ExchangeConnectionRequest extends FormRequest
             'product_code' => '商品コード',
             'api_key' => 'API Key',
             'api_secret' => 'API Secret',
+            'api_passphrase' => 'API Passphrase',
             'sync_start_mode' => '同期開始',
             'sync_start_date' => '同期開始日',
         ];
@@ -90,6 +95,10 @@ class ExchangeConnectionRequest extends FormRequest
                 'binance' => in_array($productCode, [
                     BinanceExecutionSyncService::ALL_JPY_SYMBOLS,
                     'BTCJPY',
+                ], true),
+                'bitget' => in_array($productCode, [
+                    BitgetExecutionSyncService::ALL_USDT_SYMBOLS,
+                    'BTCUSDT',
                 ], true),
                 default => false,
             };

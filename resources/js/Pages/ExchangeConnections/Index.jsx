@@ -32,6 +32,10 @@ const productOptions = {
         { value: 'ALL_JPY_SYMBOLS', label: 'すべてのJPY建て現物' },
         { value: 'BTCJPY', label: 'BTCJPYのみ' },
     ],
+    bitget: [
+        { value: 'ALL_USDT_SYMBOLS', label: 'すべてのUSDT建て現物' },
+        { value: 'BTCUSDT', label: 'BTCUSDTのみ' },
+    ],
 };
 
 const dateLabel = (iso) => {
@@ -144,6 +148,7 @@ function ConnectionForm({ portfolios }) {
         sync_start_date: todayString(),
         api_key: '',
         api_secret: '',
+        api_passphrase: '',
     });
 
     const setExchange = (exchangeCode) => {
@@ -166,7 +171,7 @@ function ConnectionForm({ portfolios }) {
         e.preventDefault();
         post(route('exchange-connections.store'), {
             preserveScroll: true,
-            onSuccess: () => reset('api_key', 'api_secret'),
+            onSuccess: () => reset('api_key', 'api_secret', 'api_passphrase'),
         });
     };
 
@@ -187,6 +192,7 @@ function ConnectionForm({ portfolios }) {
                         <option value="gmo_coin">GMOコイン</option>
                         <option value="zaif">Zaif</option>
                         <option value="binance">Binance Japan</option>
+                        <option value="bitget">Bitget</option>
                     </select>
                     <InputError message={errors.exchange_code} className="mt-2" />
                 </div>
@@ -280,6 +286,21 @@ function ConnectionForm({ portfolios }) {
                     />
                     <InputError message={errors.api_secret} className="mt-2" />
                 </div>
+
+                {data.exchange_code === 'bitget' && (
+                    <div>
+                        <InputLabel htmlFor="api_passphrase" value="API Passphrase" />
+                        <TextInput
+                            id="api_passphrase"
+                            type="password"
+                            value={data.api_passphrase}
+                            onChange={(e) => setData('api_passphrase', e.target.value)}
+                            className="mt-1 block w-full"
+                            autoComplete="off"
+                        />
+                        <InputError message={errors.api_passphrase} className="mt-2" />
+                    </div>
+                )}
             </div>
 
             <div className="flex justify-end">
