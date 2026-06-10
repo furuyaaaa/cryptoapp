@@ -151,6 +151,7 @@ final class TransactionCsvImportService
         $isBitFlyerTradeExport = $this->isBitFlyerTradeExport($headers);
         $isBitbankSpotTradeExport = $this->isBitbankSpotTradeExport($headers);
         $isCoincheckIndustryStandardExport = $this->isCoincheckIndustryStandardExport($headers);
+        $isZaifTradeExport = $this->isZaifTradeExport($headers);
         $headers = array_map(
             fn ($header) => $this->normalizeHeader(
                 (string) $header,
@@ -158,6 +159,7 @@ final class TransactionCsvImportService
                 $isBitFlyerTradeExport,
                 $isBitbankSpotTradeExport,
                 $isCoincheckIndustryStandardExport,
+                $isZaifTradeExport,
             ),
             $headers,
         );
@@ -195,6 +197,9 @@ final class TransactionCsvImportService
             }
             if ($isCoincheckIndustryStandardExport) {
                 $row = $this->normalizeCoincheckIndustryStandardRow($row);
+            }
+            if ($isZaifTradeExport) {
+                $row = $this->normalizeZaifTradeRow($row);
             }
 
             $rows[] = $row;
@@ -346,6 +351,7 @@ final class TransactionCsvImportService
         bool $isBitFlyerTradeExport = false,
         bool $isBitbankSpotTradeExport = false,
         bool $isCoincheckIndustryStandardExport = false,
+        bool $isZaifTradeExport = false,
     ): string {
         $key = $this->normalizedHeaderKey($header);
 
@@ -438,6 +444,34 @@ final class TransactionCsvImportService
             ][$key] ?? str_replace([' ', '-'], '_', $key);
         }
 
+        if ($isZaifTradeExport) {
+            return [
+                '取引日時' => 'executed_at',
+                '日時' => 'executed_at',
+                '約定日時' => 'executed_at',
+                '通貨ペア' => 'market_pair',
+                'ペア' => 'market_pair',
+                '市場' => 'market_pair',
+                '売買' => 'type',
+                '取引種別' => 'type',
+                '種別' => 'type',
+                '価格' => 'price_jpy',
+                '約定価格' => 'price_jpy',
+                '取引価格' => 'price_jpy',
+                '数量' => 'amount',
+                '約定数量' => 'amount',
+                '手数料' => 'fee_raw',
+                '手数料(jpy)' => 'fee_jpy',
+                '手数料（jpy）' => 'fee_jpy',
+                '取引id' => 'trade_id',
+                '取引ID' => 'trade_id',
+                '注文id' => 'order_id',
+                '注文ID' => 'order_id',
+                '備考' => 'note',
+                'メモ' => 'note',
+            ][$key] ?? str_replace([' ', '-'], '_', $key);
+        }
+
         return [
             '取引日時' => 'executed_at',
             '日時' => 'executed_at',
@@ -495,7 +529,9 @@ final class TransactionCsvImportService
     {
         $keys = array_map(fn ($header): string => $this->normalizedHeaderKey((string) $header), $headers);
 
-        return count(array_intersect(['注文id', '取引id', '通貨ペア', '売/買', '数量', '価格', '発生手数料', '取引日時'], $keys)) >= 6;
+        return in_array('売/買', $keys, true)
+            && in_array('発生手数料', $keys, true)
+            && count(array_intersect(['注文id', '取引id', '通貨ペア', '数量', '価格', '取引日時'], $keys)) >= 4;
     }
 
     /**
@@ -506,6 +542,22 @@ final class TransactionCsvImportService
         $keys = array_map(fn ($header): string => $this->normalizedHeaderKey((string) $header), $headers);
 
         return count(array_intersect(['取引日時', '取引種別', '取引形態', '通貨ペア', '増加通貨名', '増加数量', '減少通貨名', '減少数量', '約定価格', '手数料通貨', '手数料数量'], $keys)) >= 8;
+    }
+
+    /**
+     * @param  list<mixed>  $headers
+     */
+    private function isZaifTradeExport(array $headers): bool
+    {
+        $keys = array_map(fn ($header): string => $this->normalizedHeaderKey((string) $header), $headers);
+
+        return count(array_intersect(['取引日時', '日時', '約定日時'], $keys)) >= 1
+            && count(array_intersect(['通貨ペア', 'ペア', '市場'], $keys)) >= 1
+            && count(array_intersect(['売買', '取引種別', '種別'], $keys)) >= 1
+            && count(array_intersect(['価格', '約定価格', '取引価格'], $keys)) >= 1
+            && count(array_intersect(['数量', '約定数量'], $keys)) >= 1
+            && ! $this->isBitbankSpotTradeExport($headers)
+            && ! $this->isCoincheckIndustryStandardExport($headers);
     }
 
     /**
@@ -599,6 +651,30 @@ final class TransactionCsvImportService
                 $row['fee_jpy'] = $this->absoluteDecimalString($row['fee_amount']);
             } else {
                 $row['fee_raw'] = trim($row['fee_amount'].' '.$feeCurrency);
+            }
+        }
+
+        return $row;
+    }
+
+    /**
+     * @param  array<string, string>  $row
+     * @return array<string, string>
+     */
+    private function normalizeZaifTradeRow(array $row): array
+    {
+        $row['exchange'] = $row['exchange'] ?? 'Zaif';
+        $row['external_id'] = $row['trade_id'] ?? $row['order_id'] ?? '';
+
+        if (($row['asset_currency'] ?? '') === '' && ($row['market_pair'] ?? '') !== '') {
+            $row['asset_currency'] = $this->symbolFromMarketPair($row['market_pair']);
+        }
+
+        if (($row['fee_jpy'] ?? '') === '' && ($row['fee_raw'] ?? '') !== '') {
+            if ($this->feeUnit($row['fee_raw']) === 'JPY') {
+                $row['fee_jpy'] = $this->absoluteDecimalString($row['fee_raw']);
+            } else {
+                $row['fee_raw'] = trim($row['fee_raw']);
             }
         }
 

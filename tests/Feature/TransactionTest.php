@@ -519,6 +519,79 @@ test('Coincheckの業界標準フォーマットCSVを取り込める', function
     ]);
 });
 
+test('Zaifの取引履歴CSVを取り込める', function () {
+    $user = User::factory()->create();
+    $portfolio = Portfolio::factory()->for($user)->create(['name' => 'Main']);
+    $exchange = Exchange::factory()->create(['name' => 'Zaif', 'code' => 'zaif']);
+
+    $csv = implode("\n", [
+        '取引日時,通貨ペア,売買,価格,数量,手数料,取引ID,注文ID,備考',
+        '2026-06-01 10:20:00,btc_jpy,買,10000000,0.01,0.00001 BTC,zaif-trade-1,zaif-order-1,Zaif CSV',
+        '2026-06-01 11:20:00,eth_jpy,売,400000,0.5,120 JPY,zaif-trade-2,zaif-order-2,Zaif JPY fee',
+    ]);
+
+    $this->actingAs($user)
+        ->from(route('transactions.import.create'))
+        ->post(route('transactions.import.store'), [
+            'action' => 'preview',
+            'portfolio_id' => $portfolio->id,
+            'csv_file' => UploadedFile::fake()->createWithContent('zaif-trades.csv', $csv),
+        ])
+        ->assertRedirect(route('transactions.import.create'))
+        ->assertSessionHas('import_preview');
+
+    $preview = session('import_preview');
+    expect($preview['importable'])->toBe(2)
+        ->and($preview['rows'][0]['symbol'])->toBe('BTC')
+        ->and($preview['rows'][0]['type'])->toBe(Transaction::TYPE_BUY)
+        ->and($preview['rows'][0]['amount'])->toBe(0.01)
+        ->and($preview['rows'][0]['price_jpy'])->toBe(10000000.0)
+        ->and($preview['rows'][0]['fee_jpy'])->toBe(0.0)
+        ->and($preview['rows'][0]['exchange'])->toBe('Zaif')
+        ->and($preview['rows'][0]['note'])->toBe('Zaif CSV / 手数料: 0.00001 BTC')
+        ->and($preview['rows'][1]['symbol'])->toBe('ETH')
+        ->and($preview['rows'][1]['type'])->toBe(Transaction::TYPE_SELL)
+        ->and($preview['rows'][1]['amount'])->toBe(0.5)
+        ->and($preview['rows'][1]['price_jpy'])->toBe(400000.0)
+        ->and($preview['rows'][1]['fee_jpy'])->toBe(120.0)
+        ->and($preview['rows'][1]['note'])->toBe('Zaif JPY fee');
+
+    $this->actingAs($user)
+        ->post(route('transactions.import.store'), [
+            'action' => 'import',
+            'import_token' => $preview['token'],
+            'portfolio_id' => $preview['portfolio_id'],
+        ])
+        ->assertRedirect(route('transactions.index'))
+        ->assertSessionHas('success');
+
+    $asset = Asset::where('symbol', 'BTC')->first();
+    $eth = Asset::where('symbol', 'ETH')->first();
+
+    $this->assertDatabaseHas('transactions', [
+        'portfolio_id' => $portfolio->id,
+        'asset_id' => $asset->id,
+        'exchange_id' => $exchange->id,
+        'type' => Transaction::TYPE_BUY,
+        'amount' => 0.01,
+        'price_jpy' => 10000000,
+        'fee_jpy' => 0,
+        'external_id' => 'zaif-trade-1',
+        'note' => 'Zaif CSV / 手数料: 0.00001 BTC',
+    ]);
+    $this->assertDatabaseHas('transactions', [
+        'portfolio_id' => $portfolio->id,
+        'asset_id' => $eth->id,
+        'exchange_id' => $exchange->id,
+        'type' => Transaction::TYPE_SELL,
+        'amount' => 0.5,
+        'price_jpy' => 400000,
+        'fee_jpy' => 120,
+        'external_id' => 'zaif-trade-2',
+        'note' => 'Zaif JPY fee',
+    ]);
+});
+
 test('CSVインポートは重複external_idをスキップする', function () {
     $user = User::factory()->create();
     Portfolio::factory()->for($user)->create(['name' => 'Main']);

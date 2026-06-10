@@ -97,6 +97,28 @@ class CoinGeckoService
     }
 
     /**
+     * 指定日の CoinGecko ID の JPY 価格を返す。
+     *
+     * CoinGecko の /coins/{id}/history は日付を dd-mm-yyyy で受け取る。
+     *
+     * @throws ConnectionException|RequestException
+     */
+    public function fetchHistoricalJpyPrice(string $coingeckoId, \DateTimeInterface $date): float
+    {
+        $response = $this->requestWithRetry("/coins/{$coingeckoId}/history", [
+            'date' => $date->format('d-m-Y'),
+            'localization' => 'false',
+        ]);
+
+        $price = data_get($response->json(), 'market_data.current_price.jpy');
+        if (! is_numeric($price)) {
+            throw new \RuntimeException("CoinGecko: JPY price not found for {$coingeckoId} on ".$date->format('Y-m-d'));
+        }
+
+        return (float) $price;
+    }
+
+    /**
      * 指定された CoinGecko ID 群のマーケット情報 (主にアイコン URL) を返す。
      *
      * @param  array<string>  $coingeckoIds

@@ -37,6 +37,10 @@ Schedule::command('binance:sync-executions')
     ->everyThirtyMinutes()
     ->withoutOverlapping();
 
+Schedule::command('bitget:sync-executions')
+    ->everyThirtyMinutes()
+    ->withoutOverlapping();
+
 Schedule::command('transaction-import-previews:prune')
     ->daily()
     ->withoutOverlapping();
