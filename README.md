@@ -102,6 +102,7 @@ php artisan db:seed --class=DemoSeeder
 - bitFlyer 約定履歴の同期（読み取り専用 API キー）
 - bitbank / Coincheck / GMOコイン / Zaif / Binance Japan の約定履歴同期
 - Bitget の USDT 建て現物約定履歴同期（USDT/JPY 日次レートでJPY換算）
+- KuCoin の USDT 建て現物約定履歴同期（USDT/JPY 日次レートでJPY換算）
 
 ---
 
@@ -268,6 +269,19 @@ Bitget は API Key / API Secret に加えて API Passphrase が必要です。AP
 
 Bitget の約定価格は USDT 建てのため、取引日の USDT/JPY 日次レートを CoinGecko から取得し、`daily_quote_rates` に保存して JPY 換算します。Bitget API の約定履歴取得範囲は直近90日以内です。90日より古い履歴や、API で取得できない履歴は CSV インポートや手動登録で補完してください。詳しい運用手順は [docs/bitget-sync.md](docs/bitget-sync.md) を参照してください。
 
+## KuCoin 連携
+
+KuCoin の API キーを登録すると、KuCoin Spot API で取得できる USDT 建て現物約定履歴を取引履歴へ取り込めます。
+
+```bash
+php artisan kucoin:connect demo@example.com <portfolio_id>
+php artisan kucoin:sync-executions
+```
+
+KuCoin は API Key / API Secret に加えて API Passphrase が必要です。APIキーには読み取りに必要な権限だけを付与し、売買・出金権限を付けないでください。
+
+KuCoin の約定価格は USDT 建てのため、取引日の USDT/JPY 日次レートを CoinGecko から取得し、`daily_quote_rates` に保存して JPY 換算します。KuCoin API の約定履歴は7日ごとに分割して取得します。API で取得できない履歴や USDT 以外の建て通貨は、CSV インポートや手動登録で補完してください。詳しい運用手順は [docs/kucoin-sync.md](docs/kucoin-sync.md) を参照してください。
+
 ---
 
 ## 今後の対応予定・未対応取引所
@@ -276,12 +290,13 @@ Bitget の約定価格は USDT 建てのため、取引日の USDT/JPY 日次レ
 
 現時点の対応状況:
 
-- 対応済み: bitFlyer、bitbank、Coincheck、GMOコイン、Zaif、Binance Japan、Bitget
-- 未対応: Binance グローバル、Coinbase、Kraken、OKX、KuCoin、Gate.io
+- 対応済み: bitFlyer、bitbank、Coincheck、GMOコイン、Zaif、Binance Japan、Bitget、KuCoin
+- 未対応: Binance グローバル、Coinbase、OKX、Gate.io
 - API仕様確認待ち: SBI VC Trade
 - API利用不可のため保留: BITPOINT（BITPOINT Japan はユーザー向けの約定履歴取得APIが確認できないため、取引所API連携の実装対象外。過去履歴はCSVインポートまたは手動登録で補完する方針）
 - サービス終了のため対象外: DMM Bitcoin
 - 日本向けサービス終了予定のため対象外: Bybit
+- 日本居住者が利用できないため対象外: Kraken
 
 今後追加する取引所では、最初に API 仕様、取得できる履歴の範囲、レート制限、必要権限、テスト方法を確認します。API で取得できない過去履歴や販売所・簡単売買の履歴は、手動 CRUD または CSV インポートで補完する方針です。
 
