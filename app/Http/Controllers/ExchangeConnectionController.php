@@ -17,6 +17,8 @@ use App\Services\Exchanges\CoincheckClient;
 use App\Services\Exchanges\CoincheckExecutionSyncService;
 use App\Services\Exchanges\GmoCoinClient;
 use App\Services\Exchanges\GmoCoinExecutionSyncService;
+use App\Services\Exchanges\KuCoinClient;
+use App\Services\Exchanges\KuCoinExecutionSyncService;
 use App\Services\Exchanges\ZaifClient;
 use App\Services\Exchanges\ZaifExecutionSyncService;
 use Illuminate\Http\RedirectResponse;
@@ -114,6 +116,7 @@ class ExchangeConnectionController extends Controller
         ZaifExecutionSyncService $zaifSync,
         BinanceExecutionSyncService $binanceSync,
         BitgetExecutionSyncService $bitgetSync,
+        KuCoinExecutionSyncService $kuCoinSync,
     ): RedirectResponse {
         abort_unless($connection->user_id === $request->user()->id, 403);
         $connection->loadMissing('exchange');
@@ -127,6 +130,7 @@ class ExchangeConnectionController extends Controller
                 'zaif' => $zaifSync->sync($connection),
                 'binance' => $binanceSync->sync($connection),
                 'bitget' => $bitgetSync->sync($connection),
+                'kucoin' => $kuCoinSync->sync($connection),
                 default => throw new \RuntimeException('Unsupported exchange: '.$connection->exchange->code),
             };
         } catch (Throwable $e) {
@@ -158,6 +162,7 @@ class ExchangeConnectionController extends Controller
             'zaif' => $this->assertReadableZaifKey($apiKey, $apiSecret),
             'binance' => $this->assertReadableBinanceKey($apiKey, $apiSecret),
             'bitget' => $this->assertReadableBitgetKey($apiKey, $apiSecret, (string) $apiPassphrase),
+            'kucoin' => $this->assertReadableKuCoinKey($apiKey, $apiSecret, (string) $apiPassphrase),
             default => throw new \RuntimeException('Unsupported exchange: '.$exchangeCode),
         };
     }
@@ -232,6 +237,12 @@ class ExchangeConnectionController extends Controller
             ->assets('USDT');
     }
 
+    private function assertReadableKuCoinKey(string $apiKey, string $apiSecret, string $apiPassphrase): void
+    {
+        (new KuCoinClient($apiKey, $apiSecret, $apiPassphrase, config('services.kucoin.base_url')))
+            ->apiKeyInfo();
+    }
+
     private function labelForConnection(string $exchangeCode, string $productCode): string
     {
         return match ($exchangeCode) {
@@ -242,6 +253,7 @@ class ExchangeConnectionController extends Controller
             'zaif' => 'Zaif '.$this->labelForZaifPair($productCode),
             'binance' => 'Binance Japan '.$this->labelForBinanceSymbol($productCode),
             'bitget' => 'Bitget '.$this->labelForBitgetSymbol($productCode),
+            'kucoin' => 'KuCoin '.$this->labelForKuCoinSymbol($productCode),
             default => $exchangeCode.' '.$productCode,
         };
     }
@@ -256,6 +268,7 @@ class ExchangeConnectionController extends Controller
             'zaif' => 'Zaif',
             'binance' => 'Binance Japan',
             'bitget' => 'Bitget',
+            'kucoin' => 'KuCoin',
             default => $exchangeCode,
         };
     }
@@ -313,6 +326,13 @@ class ExchangeConnectionController extends Controller
     private function labelForBitgetSymbol(string $symbol): string
     {
         return $symbol === BitgetExecutionSyncService::ALL_USDT_SYMBOLS
+            ? '全USDT建て現物'
+            : $symbol;
+    }
+
+    private function labelForKuCoinSymbol(string $symbol): string
+    {
+        return $symbol === KuCoinExecutionSyncService::ALL_USDT_SYMBOLS
             ? '全USDT建て現物'
             : $symbol;
     }

@@ -36,6 +36,10 @@ const productOptions = {
         { value: 'ALL_USDT_SYMBOLS', label: 'すべてのUSDT建て現物' },
         { value: 'BTCUSDT', label: 'BTCUSDTのみ' },
     ],
+    kucoin: [
+        { value: 'ALL_KUCOIN_USDT_SYMBOLS', label: 'すべてのUSDT建て現物' },
+        { value: 'BTC-USDT', label: 'BTC-USDTのみ' },
+    ],
 };
 
 const dateLabel = (iso) => {
@@ -193,6 +197,7 @@ function ConnectionForm({ portfolios }) {
                         <option value="zaif">Zaif</option>
                         <option value="binance">Binance Japan</option>
                         <option value="bitget">Bitget</option>
+                        <option value="kucoin">KuCoin</option>
                     </select>
                     <InputError message={errors.exchange_code} className="mt-2" />
                 </div>
@@ -287,7 +292,7 @@ function ConnectionForm({ portfolios }) {
                     <InputError message={errors.api_secret} className="mt-2" />
                 </div>
 
-                {data.exchange_code === 'bitget' && (
+                {['bitget', 'kucoin'].includes(data.exchange_code) && (
                     <div>
                         <InputLabel htmlFor="api_passphrase" value="API Passphrase" />
                         <TextInput

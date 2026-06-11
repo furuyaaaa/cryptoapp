@@ -63,4 +63,8 @@ return [
         'base_url' => env('BITGET_BASE_URL', 'https://api.bitget.com'),
     ],
 
+    'kucoin' => [
+        'base_url' => env('KUCOIN_BASE_URL', 'https://api.kucoin.com'),
+    ],
+
 ];
