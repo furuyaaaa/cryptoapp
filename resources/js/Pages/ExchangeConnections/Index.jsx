@@ -20,6 +20,12 @@ const productOptions = {
         { value: 'ALL_JPY_PAIRS', label: 'すべてのJPY建て取引所ペア' },
         { value: 'btc_jpy', label: 'btc_jpyのみ' },
     ],
+    coinbase: [
+        { value: 'ALL_COINBASE_STABLE_QUOTE_PRODUCTS', label: 'すべてのUSD/USDC/USDT建て現物' },
+        { value: 'BTC-USD', label: 'BTC-USDのみ' },
+        { value: 'BTC-USDC', label: 'BTC-USDCのみ' },
+        { value: 'BTC-USDT', label: 'BTC-USDTのみ' },
+    ],
     gmo_coin: [
         { value: 'ALL_SPOT_SYMBOLS', label: 'すべての現物銘柄' },
         { value: 'BTC', label: 'BTCのみ' },
@@ -193,6 +199,7 @@ function ConnectionForm({ portfolios }) {
                         <option value="bitflyer">bitFlyer</option>
                         <option value="bitbank">bitbank</option>
                         <option value="coincheck">Coincheck</option>
+                        <option value="coinbase">Coinbase</option>
                         <option value="gmo_coin">GMOコイン</option>
                         <option value="zaif">Zaif</option>
                         <option value="binance">Binance Japan</option>
@@ -279,16 +286,26 @@ function ConnectionForm({ portfolios }) {
                     <InputError message={errors.api_key} className="mt-2" />
                 </div>
 
-                <div>
+                <div className={data.exchange_code === 'coinbase' ? 'md:col-span-2' : ''}>
                     <InputLabel htmlFor="api_secret" value="API Secret" />
-                    <TextInput
-                        id="api_secret"
-                        type="password"
-                        value={data.api_secret}
-                        onChange={(e) => setData('api_secret', e.target.value)}
-                        className="mt-1 block w-full"
-                        autoComplete="off"
-                    />
+                    {data.exchange_code === 'coinbase' ? (
+                        <textarea
+                            id="api_secret"
+                            value={data.api_secret}
+                            onChange={(e) => setData('api_secret', e.target.value)}
+                            className="mt-1 block min-h-32 w-full rounded-md border-gray-300 font-mono text-sm shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+                            autoComplete="off"
+                        />
+                    ) : (
+                        <TextInput
+                            id="api_secret"
+                            type="password"
+                            value={data.api_secret}
+                            onChange={(e) => setData('api_secret', e.target.value)}
+                            className="mt-1 block w-full"
+                            autoComplete="off"
+                        />
+                    )}
                     <InputError message={errors.api_secret} className="mt-2" />
                 </div>
 
