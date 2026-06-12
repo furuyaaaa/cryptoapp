@@ -4,8 +4,9 @@ namespace App\Http\Requests;
 
 use App\Services\Exchanges\BinanceExecutionSyncService;
 use App\Services\Exchanges\BitbankExecutionSyncService;
-use App\Services\Exchanges\BitgetExecutionSyncService;
 use App\Services\Exchanges\BitFlyerExecutionSyncService;
+use App\Services\Exchanges\BitgetExecutionSyncService;
+use App\Services\Exchanges\CoinbaseExecutionSyncService;
 use App\Services\Exchanges\CoincheckExecutionSyncService;
 use App\Services\Exchanges\GmoCoinExecutionSyncService;
 use App\Services\Exchanges\KuCoinExecutionSyncService;
@@ -29,11 +30,12 @@ class ExchangeConnectionRequest extends FormRequest
                 'integer',
                 Rule::exists('portfolios', 'id')->where('user_id', $this->user()->id),
             ],
-            'exchange_code' => ['required', 'string', Rule::in(['bitflyer', 'bitbank', 'coincheck', 'gmo_coin', 'zaif', 'binance', 'bitget', 'kucoin'])],
+            'exchange_code' => ['required', 'string', Rule::in(['bitflyer', 'bitbank', 'coincheck', 'coinbase', 'gmo_coin', 'zaif', 'binance', 'bitget', 'kucoin'])],
             'product_code' => ['required', 'string', Rule::in([
                 BitFlyerExecutionSyncService::ALL_SPOT_JPY,
                 BitbankExecutionSyncService::ALL_JPY_PAIRS,
                 CoincheckExecutionSyncService::ALL_JPY_PAIRS,
+                CoinbaseExecutionSyncService::ALL_STABLE_QUOTE_PRODUCTS,
                 GmoCoinExecutionSyncService::ALL_SPOT_SYMBOLS,
                 ZaifExecutionSyncService::ALL_JPY_PAIRS,
                 BinanceExecutionSyncService::ALL_JPY_SYMBOLS,
@@ -45,9 +47,11 @@ class ExchangeConnectionRequest extends FormRequest
                 'BTCJPY',
                 'BTCUSDT',
                 'BTC-USDT',
+                'BTC-USD',
+                'BTC-USDC',
             ])],
             'api_key' => ['required', 'string', 'max:255'],
-            'api_secret' => ['required', 'string', 'max:255'],
+            'api_secret' => ['required', 'string', 'max:12000'],
             'api_passphrase' => ['nullable', 'required_if:exchange_code,bitget,kucoin', 'string', 'max:255'],
             'sync_start_mode' => ['required', 'string', Rule::in(['today', 'all', 'custom'])],
             'sync_start_date' => ['nullable', 'required_if:sync_start_mode,custom', 'date_format:Y-m-d'],
@@ -86,6 +90,12 @@ class ExchangeConnectionRequest extends FormRequest
                 'coincheck' => in_array($productCode, [
                     CoincheckExecutionSyncService::ALL_JPY_PAIRS,
                     'btc_jpy',
+                ], true),
+                'coinbase' => in_array($productCode, [
+                    CoinbaseExecutionSyncService::ALL_STABLE_QUOTE_PRODUCTS,
+                    'BTC-USD',
+                    'BTC-USDC',
+                    'BTC-USDT',
                 ], true),
                 'gmo_coin' => in_array($productCode, [
                     GmoCoinExecutionSyncService::ALL_SPOT_SYMBOLS,

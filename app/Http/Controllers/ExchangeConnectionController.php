@@ -9,10 +9,12 @@ use App\Services\Exchanges\BinanceClient;
 use App\Services\Exchanges\BinanceExecutionSyncService;
 use App\Services\Exchanges\BitbankClient;
 use App\Services\Exchanges\BitbankExecutionSyncService;
-use App\Services\Exchanges\BitgetClient;
-use App\Services\Exchanges\BitgetExecutionSyncService;
 use App\Services\Exchanges\BitFlyerClient;
 use App\Services\Exchanges\BitFlyerExecutionSyncService;
+use App\Services\Exchanges\BitgetClient;
+use App\Services\Exchanges\BitgetExecutionSyncService;
+use App\Services\Exchanges\CoinbaseClient;
+use App\Services\Exchanges\CoinbaseExecutionSyncService;
 use App\Services\Exchanges\CoincheckClient;
 use App\Services\Exchanges\CoincheckExecutionSyncService;
 use App\Services\Exchanges\GmoCoinClient;
@@ -112,6 +114,7 @@ class ExchangeConnectionController extends Controller
         BitFlyerExecutionSyncService $bitFlyerSync,
         BitbankExecutionSyncService $bitbankSync,
         CoincheckExecutionSyncService $coincheckSync,
+        CoinbaseExecutionSyncService $coinbaseSync,
         GmoCoinExecutionSyncService $gmoCoinSync,
         ZaifExecutionSyncService $zaifSync,
         BinanceExecutionSyncService $binanceSync,
@@ -126,6 +129,7 @@ class ExchangeConnectionController extends Controller
                 'bitflyer' => $bitFlyerSync->sync($connection),
                 'bitbank' => $bitbankSync->sync($connection),
                 'coincheck' => $coincheckSync->sync($connection),
+                'coinbase' => $coinbaseSync->sync($connection),
                 'gmo_coin' => $gmoCoinSync->sync($connection),
                 'zaif' => $zaifSync->sync($connection),
                 'binance' => $binanceSync->sync($connection),
@@ -158,6 +162,7 @@ class ExchangeConnectionController extends Controller
             'bitflyer' => $this->assertReadOnlyBitFlyerKey($apiKey, $apiSecret),
             'bitbank' => $this->assertReadableBitbankKey($apiKey, $apiSecret),
             'coincheck' => $this->assertReadableCoincheckKey($apiKey, $apiSecret),
+            'coinbase' => $this->assertReadableCoinbaseKey($apiKey, $apiSecret),
             'gmo_coin' => $this->assertReadableGmoCoinKey($apiKey, $apiSecret),
             'zaif' => $this->assertReadableZaifKey($apiKey, $apiSecret),
             'binance' => $this->assertReadableBinanceKey($apiKey, $apiSecret),
@@ -209,6 +214,12 @@ class ExchangeConnectionController extends Controller
             ->balance();
     }
 
+    private function assertReadableCoinbaseKey(string $apiKey, string $apiSecret): void
+    {
+        (new CoinbaseClient($apiKey, $apiSecret, config('services.coinbase.base_url')))
+            ->accounts();
+    }
+
     private function assertReadableGmoCoinKey(string $apiKey, string $apiSecret): void
     {
         (new GmoCoinClient($apiKey, $apiSecret, config('services.gmo_coin.base_url')))
@@ -249,6 +260,7 @@ class ExchangeConnectionController extends Controller
             'bitflyer' => 'bitFlyer '.$this->labelForBitFlyerProduct($productCode),
             'bitbank' => 'bitbank '.$this->labelForBitbankPair($productCode),
             'coincheck' => 'Coincheck '.$this->labelForCoincheckPair($productCode),
+            'coinbase' => 'Coinbase '.$this->labelForCoinbaseProduct($productCode),
             'gmo_coin' => 'GMOコイン '.$this->labelForGmoCoinSymbol($productCode),
             'zaif' => 'Zaif '.$this->labelForZaifPair($productCode),
             'binance' => 'Binance Japan '.$this->labelForBinanceSymbol($productCode),
@@ -264,6 +276,7 @@ class ExchangeConnectionController extends Controller
             'bitflyer' => 'bitFlyer',
             'bitbank' => 'bitbank',
             'coincheck' => 'Coincheck',
+            'coinbase' => 'Coinbase',
             'gmo_coin' => 'GMOコイン',
             'zaif' => 'Zaif',
             'binance' => 'Binance Japan',
@@ -277,6 +290,7 @@ class ExchangeConnectionController extends Controller
     {
         return match ($exchangeCode) {
             'bitflyer', 'bitbank', 'coincheck', 'gmo_coin', 'zaif', 'binance' => 'JP',
+            'coinbase' => 'US',
             default => null,
         };
     }
@@ -300,6 +314,13 @@ class ExchangeConnectionController extends Controller
         return $pair === CoincheckExecutionSyncService::ALL_JPY_PAIRS
             ? '全JPY建て取引所ペア'
             : $pair;
+    }
+
+    private function labelForCoinbaseProduct(string $product): string
+    {
+        return $product === CoinbaseExecutionSyncService::ALL_STABLE_QUOTE_PRODUCTS
+            ? '全USD/USDC/USDT建て現物'
+            : $product;
     }
 
     private function labelForGmoCoinSymbol(string $symbol): string

@@ -47,6 +47,10 @@ return [
         'base_url' => env('COINCHECK_BASE_URL', 'https://coincheck.com'),
     ],
 
+    'coinbase' => [
+        'base_url' => env('COINBASE_BASE_URL', 'https://api.coinbase.com'),
+    ],
+
     'gmo_coin' => [
         'base_url' => env('GMO_COIN_BASE_URL', 'https://api.coin.z.com/private'),
     ],
