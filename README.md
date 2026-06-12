@@ -305,12 +305,12 @@ KuCoin の約定価格は USDT 建てのため、取引日の USDT/JPY 日次レ
 現時点の対応状況:
 
 - 対応済み: bitFlyer、bitbank、Coincheck、GMOコイン、Zaif、Binance Japan、Coinbase、Bitget、KuCoin
-- 未対応: Binance グローバル、OKX、Gate.io
+- 未対応: Binance グローバル
 - API仕様確認待ち: SBI VC Trade
 - API利用不可のため保留: BITPOINT（BITPOINT Japan はユーザー向けの約定履歴取得APIが確認できないため、取引所API連携の実装対象外。過去履歴はCSVインポートまたは手動登録で補完する方針）
 - サービス終了のため対象外: DMM Bitcoin
 - 日本向けサービス終了予定のため対象外: Bybit
-- 日本居住者が利用できないため対象外: Kraken
+- 日本居住者が利用できないため対象外: Kraken、OKX、Gate.io
 
 今後追加する取引所では、最初に API 仕様、取得できる履歴の範囲、レート制限、必要権限、テスト方法を確認します。API で取得できない過去履歴や販売所・簡単売買の履歴は、手動 CRUD または CSV インポートで補完する方針です。
 
